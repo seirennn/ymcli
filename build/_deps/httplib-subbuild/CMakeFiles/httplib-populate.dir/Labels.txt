@@ -1,0 +1,14 @@
+# Target labels
+ httplib-populate
+# Source files and their labels
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/CMakeFiles/httplib-populate
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/CMakeFiles/httplib-populate.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/CMakeFiles/httplib-populate-complete.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-build.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-configure.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-download.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-install.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-mkdir.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-patch.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-test.rule
+/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/httplib-populate-prefix/src/httplib-populate-stamp/httplib-populate-update.rule
