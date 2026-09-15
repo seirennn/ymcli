@@ -12,6 +12,7 @@
 
 #include "ui/screens/HomeScreen.hpp"
 #include "ui/screens/SearchScreen.hpp"
+#include "ui/screens/LibraryScreen.hpp"
 #include "ui/screens/AlbumScreen.hpp"
 #include "ui/screens/ArtistScreen.hpp"
 #include "ui/screens/PlaylistScreen.hpp"
@@ -22,6 +23,7 @@
 
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/component/component.hpp>
+#include <ftxui/dom/elements.hpp>
 #include <thread>
 #include <iostream>
 
@@ -59,7 +61,9 @@ App::App()
     });
 
     audio_->onTrackEnded([this]() {
-        onTrackEnded();
+        screen_ref_->screen.Post([this]() {
+            onTrackEnded();
+        });
     });
 }
 
@@ -85,6 +89,19 @@ bool App::isAuthenticated() const {
     return api_->isAuthenticated();
 }
 
+void App::syncCloudData() {
+    if (!isAuthenticated()) return;
+    std::thread([this]() {
+        auto playlists = api_->getUserPlaylists();
+        auto liked = api_->getLikedSongs();
+        screen_ref_->screen.Post([this, playlists, liked]() {
+            cloud_playlists_ = playlists;
+            cloud_liked_songs_ = liked;
+            updateDataViews();
+        });
+    }).detach();
+}
+
 void App::updateDataViews() {
     auto recent = db_->getPlayHistory(15);
     std::vector<ui::screens::RecentPlay> home_plays;
@@ -93,9 +110,102 @@ void App::updateDataViews() {
     }
     if (home_screen_ptr_) home_screen_ptr_->SetRecentPlays(home_plays);
     if (history_screen_ptr_) history_screen_ptr_->SetHistory(recent);
-    if (favorites_screen_ptr_) favorites_screen_ptr_->SetFavorites(db_->getFavorites());
+
+    // Merge cloud liked songs with local favorites
+    std::vector<Track> all_favs = db_->getFavorites();
+    for (const auto& song : cloud_liked_songs_) {
+        bool exists = false;
+        for (const auto& f : all_favs) {
+            if (f.video_id == song.video_id) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            all_favs.push_back(song);
+        }
+    }
+    if (favorites_screen_ptr_) favorites_screen_ptr_->SetFavorites(all_favs);
+
+    if (library_screen_ptr_) {
+        library_screen_ptr_->SetPlaylists(cloud_playlists_, db_->getLocalPlaylists());
+    }
+
     if (queue_screen_ptr_) queue_screen_ptr_->UpdateQueue(queue_.tracks(), queue_.currentIndex());
     if (settings_screen_ptr_) settings_screen_ptr_->setAuthStatus(isAuthenticated());
+}
+
+static ftxui::Element renderShortcutsModal() {
+    auto key_style = [](const std::string& key) {
+        return ftxui::text(key) | ftxui::bold | ftxui::color(ui::Theme::Accent) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 13);
+    };
+    auto desc_style = [](const std::string& desc) {
+        return ftxui::text(desc) | ftxui::color(ui::Theme::TextSecondary);
+    };
+    auto entry = [&](const std::string& key, const std::string& desc) {
+        return ftxui::hbox({ key_style(key), desc_style(desc) });
+    };
+
+    auto playback_col = ftxui::vbox({
+        ftxui::text("PLAYBACK CONTROLS") | ftxui::bold | ftxui::color(ui::Theme::Accent),
+        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        entry("Space", "Play / Pause"),
+        entry("n", "Next track (skip)"),
+        entry("p", "Prev track / Restart"),
+        entry("< / >", "Seek -10s / +10s"),
+        entry("+ / -", "Volume up / down"),
+        entry("m", "Toggle mute"),
+        entry("s", "Toggle shuffle"),
+        entry("r", "Cycle repeat mode")
+    });
+
+    auto nav_col = ftxui::vbox({
+        ftxui::text("NAVIGATION") | ftxui::bold | ftxui::color(ui::Theme::Accent),
+        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        entry("1 - 7", "Switch view tabs"),
+        entry("/", "Search YouTube Music"),
+        entry("j / k", "Navigate lists (Down / Up)"),
+        entry("Tab", "Switch focus between panes"),
+        entry("Esc", "Back / Unfocus"),
+        entry("?", "Toggle this shortcuts guide"),
+        entry("q", "Quit ymcli")
+    });
+
+    auto action_col = ftxui::vbox({
+        ftxui::text("ACTIONS") | ftxui::bold | ftxui::color(ui::Theme::Accent),
+        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        entry("Enter", "Play & queue remaining"),
+        entry("a", "Add track to play queue"),
+        entry("l / +", "Add track to playlist"),
+        entry("f", "Save / Favorite track"),
+        entry("P", "Play all tracks in playlist"),
+        entry("A", "Add all tracks to play queue"),
+        entry("d", "Remove track / Delete list")
+    });
+
+    return ftxui::vbox({
+        ftxui::text("Y M C L I   S H O R T C U T S") | ftxui::bold | ftxui::color(ui::Theme::Accent) | ftxui::center,
+        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        ftxui::hbox({
+            playback_col | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 34),
+            ftxui::separator() | ftxui::color(ui::Theme::Border),
+            nav_col | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::separator() | ftxui::color(ui::Theme::Border),
+            action_col | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 34)
+        }),
+        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        ftxui::text("Press ? or Esc to return to player") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
+    }) | ftxui::bgcolor(ui::Theme::Surface) | ftxui::borderRounded | ftxui::color(ui::Theme::FocusBorder);
+}
+
+void App::openAddToPlaylistModal(const Track& track) {
+    modal_track_ = track;
+    modal_local_playlists_ = db_->getLocalPlaylists();
+    modal_playlist_sel_ = 0;
+    modal_creating_new_ = false;
+    modal_new_name_.clear();
+    show_add_playlist_modal_ = true;
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::run() {
@@ -107,14 +217,58 @@ void App::run() {
     ui::screens::HomeScreen home_screen;
 
     ui::screens::SearchScreen search_screen(
-        [this](const Track& t) { playTrack(t); },
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
         [this](const Track& t) { addToQueue(t); },
+        [this](const Track& t) { openAddToPlaylistModal(t); },
         [this](const Track& t) { toggleFavorite(t); }
     );
 
-    ui::screens::AlbumScreen album_screen;
-    ui::screens::ArtistScreen artist_screen;
-    ui::screens::PlaylistScreen playlist_screen;
+    ui::screens::LibraryScreen library_screen(
+        [this](const Playlist& pl) {
+            if (pl.playlist_id.rfind("local:", 0) == 0) {
+                int id = std::stoi(pl.playlist_id.substr(6));
+                navigateToLocalPlaylist(id, pl.title);
+            } else {
+                navigateToPlaylist(pl.playlist_id);
+            }
+        },
+        [this](const std::string& name) {
+            db_->createLocalPlaylist(name);
+            updateDataViews();
+        },
+        [this](const std::string& plId) {
+            if (plId.rfind("local:", 0) == 0) {
+                int id = std::stoi(plId.substr(6));
+                db_->deleteLocalPlaylist(id);
+                updateDataViews();
+            }
+        }
+    );
+
+    ui::screens::AlbumScreen album_screen(
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
+        [this](const Track& t) { addToQueue(t); },
+        [this](const Track& t) { openAddToPlaylistModal(t); },
+        [this](const Track& t) { toggleFavorite(t); },
+        [this]() { navigateTo(Screen::Search); }
+    );
+
+    ui::screens::ArtistScreen artist_screen(
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
+        [this](const std::string& bId) { navigateToAlbum(bId); },
+        [this](const Track& t) { addToQueue(t); },
+        [this](const Track& t) { openAddToPlaylistModal(t); },
+        [this](const Track& t) { toggleFavorite(t); },
+        [this]() { navigateTo(Screen::Search); }
+    );
+
+    ui::screens::PlaylistScreen playlist_screen(
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
+        [this](const Track& t) { addToQueue(t); },
+        [this](const Track& t) { openAddToPlaylistModal(t); },
+        [this](const Track& t) { toggleFavorite(t); },
+        [this]() { navigateTo(Screen::Library); }
+    );
 
     ui::screens::QueueScreen queue_screen(
         [this](size_t idx) { queue_.jumpTo(idx); playCurrentQueueTrack(); },
@@ -122,22 +276,29 @@ void App::run() {
     );
 
     ui::screens::HistoryScreen history_screen(
-        [this](const Track& t) { playTrack(t); }
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
+        [this](const Track& t) { addToQueue(t); },
+        [this](const Track& t) { openAddToPlaylistModal(t); },
+        [this](const Track& t) { toggleFavorite(t); }
     );
 
     ui::screens::FavoritesScreen favorites_screen(
-        [this](const Track& t) { playTrack(t); },
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
+        [this](const Track& t) { addToQueue(t); },
+        [this](const Track& t) { openAddToPlaylistModal(t); },
         [this](const Track& t) { toggleFavorite(t); }
     );
 
     ui::screens::SettingsScreen settings_screen(
         [this](const std::string& cookie) { 
             bool ok = authenticate(cookie);
+            if (ok) syncCloudData();
             updateDataViews();
             return ok;
         },
         [this](std::string& browser) { 
             bool ok = autoDetectAuth(&browser);
+            if (ok) syncCloudData();
             updateDataViews();
             return ok;
         }
@@ -145,6 +306,7 @@ void App::run() {
 
     home_screen_ptr_ = &home_screen;
     search_screen_ptr_ = &search_screen;
+    library_screen_ptr_ = &library_screen;
     album_screen_ptr_ = &album_screen;
     artist_screen_ptr_ = &artist_screen;
     playlist_screen_ptr_ = &playlist_screen;
@@ -154,26 +316,172 @@ void App::run() {
     settings_screen_ptr_ = &settings_screen;
 
     updateDataViews();
+    if (isAuthenticated()) {
+        syncCloudData();
+    }
 
     auto content_tab = ftxui::Container::Tab({
-        home_screen.GetComponent(),
-        search_screen.GetComponent(),
-        favorites_screen.GetComponent(),
-        queue_screen.GetComponent(),
-        history_screen.GetComponent(),
-        favorites_screen.GetComponent(),
-        settings_screen.GetComponent(),
-        album_screen.GetComponent(),
-        artist_screen.GetComponent(),
-        playlist_screen.GetComponent(),
+        home_screen.GetComponent(),        // 0: Home
+        search_screen.GetComponent(),      // 1: Search
+        library_screen.GetComponent(),     // 2: Library
+        queue_screen.GetComponent(),       // 3: Queue
+        history_screen.GetComponent(),     // 4: History
+        favorites_screen.GetComponent(),   // 5: Favorites
+        settings_screen.GetComponent(),    // 6: Settings
+        album_screen.GetComponent(),       // 7: AlbumDetail
+        artist_screen.GetComponent(),      // 8: ArtistDetail
+        playlist_screen.GetComponent(),    // 9: PlaylistDetail
     }, &active_screen_);
 
     ui::NowPlaying now_playing(reinterpret_cast<const ui::PlaybackState&>(playback_state_));
 
     ui::Layout layout(sidebar, search_bar, content_tab, now_playing);
-    auto root = layout.GetComponent();
+    auto base_layout = layout.GetComponent();
 
-    root |= ftxui::CatchEvent([this, &search_bar, &content_tab, &search_screen](ftxui::Event event) {
+    ftxui::InputOption playlist_input_opt;
+    playlist_input_opt.multiline = false;
+    auto modal_input = ftxui::Input(&modal_new_name_, "New playlist name...", playlist_input_opt);
+
+    auto root_container = ftxui::Container::Vertical({
+        base_layout,
+        modal_input
+    });
+
+    auto root = ftxui::Renderer(root_container, [this, base_layout, modal_input]() mutable -> ftxui::Element {
+        auto main_element = base_layout->Render();
+
+        if (show_shortcuts_modal_) {
+            return ftxui::dbox({
+                main_element,
+                renderShortcutsModal() | ftxui::clear_under | ftxui::center
+            });
+        }
+
+        if (show_add_playlist_modal_) {
+            ftxui::Elements items;
+            bool is_sel_new = (modal_playlist_sel_ == 0);
+            items.push_back(
+                ftxui::hbox({
+                    ftxui::text(is_sel_new ? "▸ " : "  ") | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextTertiary),
+                    ftxui::text("[ + Create New Playlist ]") | ftxui::bold | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextPrimary)
+                }) | (is_sel_new ? ftxui::bgcolor(ui::Theme::Elevated) : ftxui::nothing)
+            );
+
+            for (size_t i = 0; i < modal_local_playlists_.size(); ++i) {
+                bool is_sel = (modal_playlist_sel_ == static_cast<int>(i + 1));
+                const auto& pl = modal_local_playlists_[i];
+                items.push_back(
+                    ftxui::hbox({
+                        ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? ui::Theme::Accent : ui::Theme::TextTertiary),
+                        ftxui::text(pl.title) | ftxui::color(is_sel ? ui::Theme::TextPrimary : ui::Theme::TextSecondary) | ftxui::flex,
+                        ftxui::text(std::to_string(pl.track_count) + " tracks") | ftxui::color(ui::Theme::TextTertiary)
+                    }) | (is_sel ? ftxui::bgcolor(ui::Theme::Elevated) : ftxui::nothing)
+                );
+            }
+
+            ftxui::Element body;
+            if (modal_creating_new_) {
+                body = ftxui::vbox({
+                    ftxui::text("Playlist Name:") | ftxui::color(ui::Theme::TextSecondary),
+                    modal_input->Render() | ftxui::bgcolor(ui::Theme::Elevated),
+                    ftxui::separator() | ftxui::color(ui::Theme::Border),
+                    ftxui::text("[Enter] Confirm   [Esc] Back") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
+                });
+            } else {
+                body = ftxui::vbox({
+                    ftxui::vbox(std::move(items)) | ftxui::yframe | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, 10),
+                    ftxui::separator() | ftxui::color(ui::Theme::Border),
+                    ftxui::text("[Enter] Select   [Esc] Cancel") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
+                });
+            }
+
+            auto modal_box = ftxui::vbox({
+                ftxui::text("ADD TO PLAYLIST") | ftxui::bold | ftxui::color(ui::Theme::Accent) | ftxui::center,
+                ftxui::text(modal_track_.title.empty() ? "" : (modal_track_.title + " — " + modal_track_.artist)) | ftxui::color(ui::Theme::TextTertiary) | ftxui::center,
+                ftxui::separator() | ftxui::color(ui::Theme::Border),
+                body
+            }) | ftxui::bgcolor(ui::Theme::Surface) | ftxui::borderRounded | ftxui::color(ui::Theme::FocusBorder)
+               | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 50);
+
+            return ftxui::dbox({
+                main_element,
+                modal_box | ftxui::clear_under | ftxui::center
+            });
+        }
+
+        return main_element;
+    });
+
+    root |= ftxui::CatchEvent([this, &search_bar, &content_tab, &search_screen, modal_input](ftxui::Event event) {
+        if (show_shortcuts_modal_) {
+            if (event == ftxui::Event::Character('?') || 
+                event == ftxui::Event::Escape || 
+                event == ftxui::Event::Return ||
+                event == ftxui::Event::Character('q')) {
+                show_shortcuts_modal_ = false;
+                return true;
+            }
+            return true;
+        }
+
+        if (show_add_playlist_modal_) {
+            if (modal_creating_new_) {
+                if (event == ftxui::Event::Escape) {
+                    modal_creating_new_ = false;
+                    modal_new_name_.clear();
+                    return true;
+                }
+                if (event == ftxui::Event::Return) {
+                    if (!modal_new_name_.empty()) {
+                        int pid = db_->createLocalPlaylist(modal_new_name_);
+                        if (pid > 0 && !modal_track_.video_id.empty()) {
+                            db_->addTrackToLocalPlaylist(pid, modal_track_);
+                        }
+                    }
+                    show_add_playlist_modal_ = false;
+                    modal_creating_new_ = false;
+                    modal_new_name_.clear();
+                    updateDataViews();
+                    return true;
+                }
+                return modal_input->OnEvent(event);
+            }
+
+            if (event == ftxui::Event::Escape) {
+                show_add_playlist_modal_ = false;
+                return true;
+            }
+            if (event == ftxui::Event::Character('j') || event == ftxui::Event::ArrowDown) {
+                modal_playlist_sel_ = std::min(static_cast<int>(modal_local_playlists_.size()), modal_playlist_sel_ + 1);
+                return true;
+            }
+            if (event == ftxui::Event::Character('k') || event == ftxui::Event::ArrowUp) {
+                modal_playlist_sel_ = std::max(0, modal_playlist_sel_ - 1);
+                return true;
+            }
+            if (event == ftxui::Event::Return) {
+                if (modal_playlist_sel_ == 0) {
+                    modal_creating_new_ = true;
+                    modal_new_name_.clear();
+                    modal_input->TakeFocus();
+                    return true;
+                } else {
+                    int idx = modal_playlist_sel_ - 1;
+                    if (idx >= 0 && idx < static_cast<int>(modal_local_playlists_.size())) {
+                        std::string plId = modal_local_playlists_[idx].playlist_id;
+                        if (plId.rfind("local:", 0) == 0) {
+                            int pid = std::stoi(plId.substr(6));
+                            db_->addTrackToLocalPlaylist(pid, modal_track_);
+                        }
+                    }
+                    show_add_playlist_modal_ = false;
+                    updateDataViews();
+                    return true;
+                }
+            }
+            return true;
+        }
+
         // If search input is focused, let it receive all normal keys without triggering media shortcuts
         if (search_bar.GetComponent()->Focused()) {
             if (event == ftxui::Event::Escape) {
@@ -183,6 +491,10 @@ void App::run() {
             return false;
         }
 
+        if (event == ftxui::Event::Character('?')) {
+            show_shortcuts_modal_ = true;
+            return true;
+        }
         if (event == ftxui::Event::Character('q')) {
             screen_ref_->screen.ExitLoopClosure()();
             return true;
@@ -223,11 +535,11 @@ void App::run() {
             cycleRepeat();
             return true;
         }
-        if (event == ftxui::Event::Character('>')) {
+        if (event == ftxui::Event::Character('>') || event == ftxui::Event::ArrowRight) {
             seekRelative(10.0);
             return true;
         }
-        if (event == ftxui::Event::Character('<')) {
+        if (event == ftxui::Event::Character('<') || event == ftxui::Event::ArrowLeft) {
             seekRelative(-10.0);
             return true;
         }
@@ -262,6 +574,7 @@ void App::playTrack(const Track& track) {
 }
 
 void App::playTracks(const std::vector<Track>& tracks, size_t start) {
+    if (tracks.empty()) return;
     queue_.playNow(tracks, start);
     playCurrentQueueTrack();
 }
@@ -297,6 +610,10 @@ void App::nextTrack() {
 }
 
 void App::prevTrack() {
+    if (playback_state_.position > 3.0) {
+        seekRelative(-playback_state_.position);
+        return;
+    }
     auto prev = queue_.previous();
     if (prev) {
         playTrack(*prev);
@@ -417,6 +734,21 @@ void App::navigateToPlaylist(const std::string& playlistId) {
         });
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
+}
+
+void App::navigateToLocalPlaylist(int playlist_id, const std::string& title) {
+    active_screen_ = static_cast<int>(Screen::PlaylistDetail);
+    Playlist pl;
+    pl.playlist_id = "local:" + std::to_string(playlist_id);
+    pl.title = title;
+    pl.author = "Local Playlist";
+    pl.tracks = db_->getLocalPlaylistTracks(playlist_id);
+    pl.track_count = static_cast<int>(pl.tracks.size());
+    current_playlist_ = pl;
+    if (playlist_screen_ptr_) {
+        playlist_screen_ptr_->SetPlaylist(pl);
+    }
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::onTrackEnded() {

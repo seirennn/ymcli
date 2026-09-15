@@ -2,10 +2,19 @@
 #include "../Theme.hpp"
 #include "../../util/Format.hpp"
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/component/component.hpp>
 
 namespace ymcli::ui::screens {
 
-HistoryScreen::HistoryScreen(PlayTrackCallback play_cb) : play_cb_(std::move(play_cb)) {
+HistoryScreen::HistoryScreen(PlayTracksCallback play_cb,
+                             EnqueueCallback enqueue_cb,
+                             AddToPlaylistCallback add_to_pl_cb,
+                             FavoriteCallback fav_cb)
+    : play_cb_(std::move(play_cb)),
+      enqueue_cb_(std::move(enqueue_cb)),
+      add_to_pl_cb_(std::move(add_to_pl_cb)),
+      fav_cb_(std::move(fav_cb))
+{
     auto dummy = ftxui::Container::Vertical({});
 
     component_ = ftxui::Renderer(dummy, [this] {
@@ -49,7 +58,9 @@ HistoryScreen::HistoryScreen(PlayTrackCallback play_cb) : play_cb_(std::move(pla
         return ftxui::vbox({
             ftxui::hbox({
                 ftxui::text("PLAY HISTORY") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(history_.size()) + " recent)") | ftxui::color(Theme::TextTertiary)
+                ftxui::text(" (" + std::to_string(history_.size()) + " recent)") | ftxui::color(Theme::TextTertiary),
+                ftxui::filler(),
+                ftxui::text("[Enter] Play  [a] Add to Queue  [l] Save to List  [f] Favorite") | ftxui::color(Theme::TextTertiary)
             }),
             ftxui::separator() | ftxui::color(Theme::Border),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
@@ -69,7 +80,25 @@ HistoryScreen::HistoryScreen(PlayTrackCallback play_cb) : play_cb_(std::move(pla
         }
         if (event == ftxui::Event::Return) {
             if (play_cb_ && selected_ >= 0 && selected_ < static_cast<int>(history_.size())) {
-                play_cb_(history_[selected_]);
+                play_cb_(history_, selected_);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('a')) {
+            if (enqueue_cb_ && selected_ >= 0 && selected_ < static_cast<int>(history_.size())) {
+                enqueue_cb_(history_[selected_]);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('l') || event == ftxui::Event::Character('+')) {
+            if (add_to_pl_cb_ && selected_ >= 0 && selected_ < static_cast<int>(history_.size())) {
+                add_to_pl_cb_(history_[selected_]);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('f')) {
+            if (fav_cb_ && selected_ >= 0 && selected_ < static_cast<int>(history_.size())) {
+                fav_cb_(history_[selected_]);
             }
             return true;
         }

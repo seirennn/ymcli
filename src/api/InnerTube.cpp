@@ -333,6 +333,67 @@ Artist InnerTube::getArtist(const std::string& channel_id) {
     return artist;
 }
 
+static void findItemRenderers(const json& j, const std::string& key, std::vector<json>& out) {
+    if (j.is_object()) {
+        for (auto it = j.begin(); it != j.end(); ++it) {
+            if (it.key() == key) {
+                out.push_back(it.value());
+            } else {
+                findItemRenderers(it.value(), key, out);
+            }
+        }
+    } else if (j.is_array()) {
+        for (const auto& elem : j) {
+            findItemRenderers(elem, key, out);
+        }
+    }
+}
+
+static Track parseResponsiveTrack(const json& r) {
+    Track track;
+    try {
+        if (r.contains("playlistItemData") && r["playlistItemData"].contains("videoId")) {
+            track.video_id = r["playlistItemData"]["videoId"].get<std::string>();
+        }
+
+        if (r.contains("flexColumns")) {
+            const auto& cols = r["flexColumns"];
+            if (cols.size() > 0 && cols[0].contains("musicResponsiveListItemFlexColumnRenderer")) {
+                const auto& text = cols[0]["musicResponsiveListItemFlexColumnRenderer"]["text"];
+                if (text.contains("runs") && !text["runs"].empty()) {
+                    track.title = text["runs"][0]["text"].get<std::string>();
+                }
+            }
+            if (cols.size() > 1 && cols[1].contains("musicResponsiveListItemFlexColumnRenderer")) {
+                const auto& text = cols[1]["musicResponsiveListItemFlexColumnRenderer"]["text"];
+                if (text.contains("runs")) {
+                    for (const auto& run : text["runs"]) {
+                        std::string t = run["text"].get<std::string>();
+                        if (t == " • " || t == " & " || t == ", ") continue;
+                        if (track.artist.empty()) {
+                            track.artist = t;
+                        } else if (track.album.empty() && t != track.artist) {
+                            track.album = t;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (r.contains("fixedColumns") && !r["fixedColumns"].empty()) {
+            const auto& fixed = r["fixedColumns"][0];
+            if (fixed.contains("musicResponsiveListItemFixedColumnRenderer")) {
+                const auto& text = fixed["musicResponsiveListItemFixedColumnRenderer"]["text"];
+                if (text.contains("runs") && !text["runs"].empty()) {
+                    track.duration_text = text["runs"][0]["text"].get<std::string>();
+                    track.duration_seconds = parseDuration(track.duration_text);
+                }
+            }
+        }
+    } catch (...) {}
+    return track;
+}
+
 Playlist InnerTube::getPlaylist(const std::string& playlist_id) {
     Playlist playlist;
     playlist.playlist_id = playlist_id;
@@ -345,14 +406,41 @@ Playlist InnerTube::getPlaylist(const std::string& playlist_id) {
 
     try {
         json root = json::parse(raw);
-        // Parse title and tracks
+
+        std::vector<json> headers;
+        findItemRenderers(root, "musicDetailHeaderRenderer", headers);
+        if (!headers.empty()) {
+            const auto& h = headers[0];
+            try { playlist.title = h["title"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+            try { playlist.author = h["subtitle"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+        } else {
+            std::vector<json> editable_headers;
+            findItemRenderers(root, "musicEditablePlaylistDetailHeaderRenderer", editable_headers);
+            if (!editable_headers.empty() && editable_headers[0].contains("header")) {
+                const auto& h = editable_headers[0]["header"]["musicDetailHeaderRenderer"];
+                try { playlist.title = h["title"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                try { playlist.author = h["subtitle"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+            }
+        }
+
+        std::vector<json> items;
+        findItemRenderers(root, "musicResponsiveListItemRenderer", items);
+        for (const auto& item : items) {
+            Track t = parseResponsiveTrack(item);
+            if (!t.video_id.empty()) {
+                if (t.album.empty()) t.album = playlist.title;
+                playlist.tracks.push_back(t);
+            }
+        }
+        playlist.track_count = static_cast<int>(playlist.tracks.size());
     } catch (...) {}
 
     return playlist;
 }
 
 std::vector<Track> InnerTube::getLikedSongs(int limit) {
-    return getAlbum("FSMUSIC_LIKED_SONGS").tracks;
+    auto playlist = getPlaylist("VLLM");
+    return playlist.tracks;
 }
 
 std::vector<Playlist> InnerTube::getUserPlaylists() {
@@ -360,10 +448,39 @@ std::vector<Playlist> InnerTube::getUserPlaylists() {
     if (!is_authenticated_) return playlists;
 
     json body = buildContext();
-    body["browseId"] = "FEplaylist_aggregation";
+    body["browseId"] = "FEmusic_liked_playlists";
 
     std::string raw = postRequest("/youtubei/v1/browse?prettyPrint=false", body);
     if (raw.empty()) return playlists;
+
+    try {
+        json root = json::parse(raw);
+        std::vector<json> items;
+        findItemRenderers(root, "musicTwoRowItemRenderer", items);
+
+        for (const auto& item : items) {
+            Playlist p;
+            try {
+                if (item.contains("title") && item["title"].contains("runs") && !item["title"]["runs"].empty()) {
+                    p.title = item["title"]["runs"][0]["text"].get<std::string>();
+                }
+                if (p.title == "New playlist" || p.title.empty()) continue;
+
+                if (item.contains("navigationEndpoint") && 
+                    item["navigationEndpoint"].contains("browseEndpoint") &&
+                    item["navigationEndpoint"]["browseEndpoint"].contains("browseId")) {
+                    p.playlist_id = item["navigationEndpoint"]["browseEndpoint"]["browseId"].get<std::string>();
+                }
+                if (p.playlist_id.empty()) continue;
+
+                if (item.contains("subtitle") && item["subtitle"].contains("runs") && !item["subtitle"]["runs"].empty()) {
+                    p.author = item["subtitle"]["runs"][0]["text"].get<std::string>();
+                }
+
+                playlists.push_back(p);
+            } catch (...) {}
+        }
+    } catch (...) {}
 
     return playlists;
 }
@@ -377,6 +494,18 @@ std::vector<Track> InnerTube::getHistory() {
 
     std::string raw = postRequest("/youtubei/v1/browse?prettyPrint=false", body);
     if (raw.empty()) return tracks;
+
+    try {
+        json root = json::parse(raw);
+        std::vector<json> items;
+        findItemRenderers(root, "musicResponsiveListItemRenderer", items);
+        for (const auto& item : items) {
+            Track t = parseResponsiveTrack(item);
+            if (!t.video_id.empty()) {
+                tracks.push_back(t);
+            }
+        }
+    } catch (...) {}
 
     return tracks;
 }

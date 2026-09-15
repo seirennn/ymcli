@@ -5,8 +5,8 @@
 
 namespace ymcli::ui::screens {
 
-SearchScreen::SearchScreen(PlayTrackCallback play_cb, EnqueueCallback enqueue_cb, FavoriteCallback favorite_cb)
-    : play_cb_(std::move(play_cb)), enqueue_cb_(std::move(enqueue_cb)), favorite_cb_(std::move(favorite_cb))
+SearchScreen::SearchScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_cb, AddToPlaylistCallback add_to_pl_cb, FavoriteCallback favorite_cb)
+    : play_cb_(std::move(play_cb)), enqueue_cb_(std::move(enqueue_cb)), add_to_pl_cb_(std::move(add_to_pl_cb)), favorite_cb_(std::move(favorite_cb))
 {
     tab_toggle_ = ftxui::Toggle(&tab_names_, &tab_index_);
 
@@ -96,7 +96,7 @@ SearchScreen::SearchScreen(PlayTrackCallback play_cb, EnqueueCallback enqueue_cb
         if (event == ftxui::Event::Return) {
             if (tab_index_ == 0 && selected_item_ >= 0 && selected_item_ < static_cast<int>(results_.songs.size())) {
                 if (play_cb_) {
-                    play_cb_(results_.songs[selected_item_]);
+                    play_cb_(results_.songs, selected_item_);
                 }
                 return true;
             }
@@ -105,6 +105,14 @@ SearchScreen::SearchScreen(PlayTrackCallback play_cb, EnqueueCallback enqueue_cb
             if (tab_index_ == 0 && selected_item_ >= 0 && selected_item_ < static_cast<int>(results_.songs.size())) {
                 if (enqueue_cb_) {
                     enqueue_cb_(results_.songs[selected_item_]);
+                }
+                return true;
+            }
+        }
+        if (event == ftxui::Event::Character('l') || event == ftxui::Event::Character('+')) {
+            if (tab_index_ == 0 && selected_item_ >= 0 && selected_item_ < static_cast<int>(results_.songs.size())) {
+                if (add_to_pl_cb_) {
+                    add_to_pl_cb_(results_.songs[selected_item_]);
                 }
                 return true;
             }

@@ -28,6 +28,13 @@ public:
     bool isFavorite(const std::string& videoId);
     std::vector<Track> getFavorites();
 
+    // Local playlists
+    std::vector<Playlist> getLocalPlaylists();
+    int createLocalPlaylist(const std::string& name);
+    bool addTrackToLocalPlaylist(int playlist_id, const Track& track);
+    std::vector<Track> getLocalPlaylistTracks(int playlist_id);
+    bool deleteLocalPlaylist(int playlist_id);
+
 private:
     void initTables();
     void execute(const std::string& sql);

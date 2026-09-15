@@ -96,6 +96,7 @@ add_executable(ymcli
     src/ui/SearchBar.cpp
     src/ui/screens/HomeScreen.cpp
     src/ui/screens/SearchScreen.cpp
+    src/ui/screens/LibraryScreen.cpp
     src/ui/screens/AlbumScreen.cpp
     src/ui/screens/ArtistScreen.cpp
     src/ui/screens/PlaylistScreen.cpp

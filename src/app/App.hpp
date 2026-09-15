@@ -14,6 +14,7 @@ class Database;
 namespace ui::screens {
 class HomeScreen;
 class SearchScreen;
+class LibraryScreen;
 class AlbumScreen;
 class ArtistScreen;
 class PlaylistScreen;
@@ -85,6 +86,9 @@ public:
     void navigateToAlbum(const std::string& browseId);
     void navigateToArtist(const std::string& channelId);
     void navigateToPlaylist(const std::string& playlistId);
+    void navigateToLocalPlaylist(int playlist_id, const std::string& title);
+    void openAddToPlaylistModal(const Track& track);
+    void syncCloudData();
 
     const PlaybackState& playbackState() const { return playback_state_; }
     const SearchResults& searchResults() const { return search_results_; }
@@ -117,6 +121,7 @@ private:
 
     ui::screens::HomeScreen* home_screen_ptr_ = nullptr;
     ui::screens::SearchScreen* search_screen_ptr_ = nullptr;
+    ui::screens::LibraryScreen* library_screen_ptr_ = nullptr;
     ui::screens::AlbumScreen* album_screen_ptr_ = nullptr;
     ui::screens::ArtistScreen* artist_screen_ptr_ = nullptr;
     ui::screens::PlaylistScreen* playlist_screen_ptr_ = nullptr;
@@ -124,6 +129,16 @@ private:
     ui::screens::HistoryScreen* history_screen_ptr_ = nullptr;
     ui::screens::FavoritesScreen* favorites_screen_ptr_ = nullptr;
     ui::screens::SettingsScreen* settings_screen_ptr_ = nullptr;
+
+    bool show_shortcuts_modal_ = false;
+    bool show_add_playlist_modal_ = false;
+    bool modal_creating_new_ = false;
+    Track modal_track_;
+    int modal_playlist_sel_ = 0;
+    std::string modal_new_name_;
+    std::vector<Playlist> modal_local_playlists_;
+    std::vector<Playlist> cloud_playlists_;
+    std::vector<Track> cloud_liked_songs_;
 
     struct ScreenRef;
     std::unique_ptr<ScreenRef> screen_ref_;

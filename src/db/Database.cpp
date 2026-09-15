@@ -55,6 +55,22 @@ void Database::initTables() {
             album TEXT,
             added_at INTEGER
         );
+        CREATE TABLE IF NOT EXISTS local_playlists (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            created_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS local_playlist_tracks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            playlist_id INTEGER,
+            video_id TEXT,
+            title TEXT,
+            artist TEXT,
+            album TEXT,
+            duration_text TEXT,
+            duration_seconds INTEGER,
+            added_at INTEGER
+        );
     )");
 }
 
@@ -170,6 +186,105 @@ std::vector<Track> Database::getFavorites() {
         sqlite3_finalize(stmt);
     }
     return results;
+}
+
+std::vector<Playlist> Database::getLocalPlaylists() {
+    std::vector<Playlist> list;
+    const char* sql = "SELECT p.id, p.name, COUNT(t.id) "
+                      "FROM local_playlists p "
+                      "LEFT JOIN local_playlist_tracks t ON p.id = t.playlist_id "
+                      "GROUP BY p.id ORDER BY p.name ASC";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            Playlist pl;
+            int id = sqlite3_column_int(stmt, 0);
+            pl.playlist_id = "local:" + std::to_string(id);
+            pl.title = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            pl.author = "Local Playlist";
+            pl.track_count = sqlite3_column_int(stmt, 2);
+            list.push_back(pl);
+        }
+        sqlite3_finalize(stmt);
+    }
+    return list;
+}
+
+int Database::createLocalPlaylist(const std::string& name) {
+    if (name.empty()) return -1;
+    const char* sql = "INSERT OR IGNORE INTO local_playlists (name, created_at) VALUES (?, ?)";
+    sqlite3_stmt* stmt;
+    int new_id = -1;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 2, std::time(nullptr));
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            new_id = static_cast<int>(sqlite3_last_insert_rowid(db_));
+        }
+        sqlite3_finalize(stmt);
+    }
+    return new_id;
+}
+
+bool Database::addTrackToLocalPlaylist(int playlist_id, const Track& track) {
+    const char* sql = "INSERT INTO local_playlist_tracks (playlist_id, video_id, title, artist, album, duration_text, duration_seconds, added_at) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    sqlite3_stmt* stmt;
+    bool ok = false;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, playlist_id);
+        sqlite3_bind_text(stmt, 2, track.video_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, track.title.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, track.artist.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 5, track.album.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 6, track.duration_text.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 7, track.duration_seconds);
+        sqlite3_bind_int64(stmt, 8, std::time(nullptr));
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            ok = true;
+        }
+        sqlite3_finalize(stmt);
+    }
+    return ok;
+}
+
+std::vector<Track> Database::getLocalPlaylistTracks(int playlist_id) {
+    std::vector<Track> tracks;
+    const char* sql = "SELECT video_id, title, artist, album, duration_text, duration_seconds "
+                      "FROM local_playlist_tracks WHERE playlist_id = ? ORDER BY id ASC";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, playlist_id);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            Track t;
+            t.video_id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            t.title = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            t.artist = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            if (auto alb = sqlite3_column_text(stmt, 3)) t.album = reinterpret_cast<const char*>(alb);
+            if (auto dur = sqlite3_column_text(stmt, 4)) t.duration_text = reinterpret_cast<const char*>(dur);
+            t.duration_seconds = sqlite3_column_int(stmt, 5);
+            tracks.push_back(t);
+        }
+        sqlite3_finalize(stmt);
+    }
+    return tracks;
+}
+
+bool Database::deleteLocalPlaylist(int playlist_id) {
+    const char* sql1 = "DELETE FROM local_playlist_tracks WHERE playlist_id = ?";
+    const char* sql2 = "DELETE FROM local_playlists WHERE id = ?";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql1, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, playlist_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+    if (sqlite3_prepare_v2(db_, sql2, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, playlist_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+    return true;
 }
 
 } // namespace ymcli

@@ -1,45 +1,159 @@
 #include "PlaylistScreen.hpp"
 #include "../Theme.hpp"
+#include "../../util/Format.hpp"
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/component/component.hpp>
 
 namespace ymcli::ui::screens {
 
-PlaylistScreen::PlaylistScreen() {
-    component_ = ftxui::Renderer([this] {
-        auto header = ftxui::vbox({
-            Theme::heading(title_),
-            Theme::subtext(author_),
-            ftxui::text(count_ + " tracks") | ftxui::color(Theme::TextTertiary),
-            ftxui::text("[P] Play All  [A] Add All to Queue") | ftxui::color(Theme::DimAccent)
-        });
+PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
+                               EnqueueCallback enqueue_cb,
+                               AddToPlaylistCallback add_to_pl_cb,
+                               FavoriteCallback fav_cb,
+                               BackCallback back_cb)
+    : play_cb_(std::move(play_cb)),
+      enqueue_cb_(std::move(enqueue_cb)),
+      add_to_pl_cb_(std::move(add_to_pl_cb)),
+      fav_cb_(std::move(fav_cb)),
+      back_cb_(std::move(back_cb))
+{
+    auto dummy = ftxui::Container::Vertical({});
 
-        ftxui::Elements track_elements;
-        for (size_t i = 0; i < tracks_.size(); ++i) {
-            auto el = ftxui::hbox({
-                ftxui::text(tracks_[i].title) | ftxui::color(Theme::TextPrimary) | ftxui::flex,
-                ftxui::text(tracks_[i].artist) | ftxui::color(Theme::TextSecondary)
-            });
-            if (static_cast<int>(i) == selected_) el = el | Theme::focused_style();
-            track_elements.push_back(el);
+    component_ = ftxui::Renderer(dummy, [this] {
+        ftxui::Elements rows;
+
+        auto header_row = ftxui::hbox({
+            ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex,
+            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
+        }) | ftxui::bgcolor(Theme::SecondaryBg);
+
+        rows.push_back(header_row);
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+
+        if (tracks_.empty()) {
+            rows.push_back(
+                ftxui::text("No tracks found in this playlist.")
+                | ftxui::color(Theme::TextTertiary) | ftxui::center
+            );
+        } else {
+            for (size_t i = 0; i < tracks_.size(); ++i) {
+                const auto& track = tracks_[i];
+                bool is_sel = (static_cast<int>(i) == selected_);
+
+                auto cursor_text = is_sel ? "▸ " : "  ";
+                auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
+
+                std::string title_str = ymcli::truncate(track.title, 34);
+                std::string artist_str = ymcli::truncate(track.artist, 22);
+                std::string album_str = ymcli::truncate(track.album.empty() ? title_ : track.album, 28);
+                std::string time_str = track.duration_text.empty() ? "--:--" : track.duration_text;
+
+                auto row = ftxui::hbox({
+                    ftxui::text(cursor_text) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+                    ftxui::text(artist_str) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(album_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
+                    ftxui::text(time_str) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
+                });
+
+                if (is_sel) {
+                    row = row | ftxui::bgcolor(Theme::Elevated);
+                }
+
+                rows.push_back(row);
+            }
         }
 
+        std::string author_str = author_.empty() ? "Playlist" : author_;
+        std::string count_str = std::to_string(tracks_.size()) + " tracks";
+
         return ftxui::vbox({
-            header,
+            ftxui::vbox({
+                Theme::heading(title_.empty() ? "Playlist" : title_),
+                ftxui::hbox({
+                    Theme::subtext(author_str),
+                    ftxui::text(" • ") | ftxui::color(Theme::TextTertiary),
+                    ftxui::text(count_str) | ftxui::color(Theme::TextTertiary),
+                    ftxui::filler(),
+                    ftxui::text("[Enter] Play  [P] Play All  [A] Add All  [a] Add  [l] Save to List  [Esc] Back") | ftxui::color(Theme::TextTertiary)
+                })
+            }),
             ftxui::separator() | ftxui::color(Theme::Border),
-            ftxui::vbox(track_elements) | ftxui::yframe | ftxui::flex
-        });
+            ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
+        }) | ftxui::bgcolor(Theme::Background);
     });
 
     component_ |= ftxui::CatchEvent([this](ftxui::Event event) {
-        if (event == ftxui::Event::Character('j')) { selected_ = std::min((int)tracks_.size() - 1, selected_ + 1); return true; }
-        if (event == ftxui::Event::Character('k')) { selected_ = std::max(0, selected_ - 1); return true; }
+        if (event == ftxui::Event::Escape) {
+            if (back_cb_) {
+                back_cb_();
+                return true;
+            }
+        }
+
+        if (event == ftxui::Event::Character('j') || event == ftxui::Event::ArrowDown) {
+            if (!tracks_.empty()) {
+                selected_ = std::min(static_cast<int>(tracks_.size() - 1), selected_ + 1);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('k') || event == ftxui::Event::ArrowUp) {
+            selected_ = std::max(0, selected_ - 1);
+            return true;
+        }
+        if (event == ftxui::Event::Return) {
+            if (play_cb_ && selected_ >= 0 && selected_ < static_cast<int>(tracks_.size())) {
+                play_cb_(tracks_, selected_);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('P')) {
+            if (play_cb_ && !tracks_.empty()) {
+                play_cb_(tracks_, 0);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('A')) {
+            if (enqueue_cb_ && !tracks_.empty()) {
+                for (const auto& t : tracks_) {
+                    enqueue_cb_(t);
+                }
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('a')) {
+            if (enqueue_cb_ && selected_ >= 0 && selected_ < static_cast<int>(tracks_.size())) {
+                enqueue_cb_(tracks_[selected_]);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('l') || event == ftxui::Event::Character('+')) {
+            if (add_to_pl_cb_ && selected_ >= 0 && selected_ < static_cast<int>(tracks_.size())) {
+                add_to_pl_cb_(tracks_[selected_]);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('f')) {
+            if (fav_cb_ && selected_ >= 0 && selected_ < static_cast<int>(tracks_.size())) {
+                fav_cb_(tracks_[selected_]);
+            }
+            return true;
+        }
         return false;
     });
 }
 
 ftxui::Component PlaylistScreen::GetComponent() { return component_; }
-void PlaylistScreen::SetData(const std::string& title, const std::string& author, const std::string& count, const std::vector<PlaylistTrack>& tracks) {
-    title_ = title; author_ = author; count_ = count; tracks_ = tracks; selected_ = 0;
+
+void PlaylistScreen::SetPlaylist(const Playlist& playlist) {
+    title_ = playlist.title;
+    author_ = playlist.author;
+    track_count_ = playlist.track_count;
+    tracks_ = playlist.tracks;
+    selected_ = 0;
 }
 
 } // namespace ymcli::ui::screens

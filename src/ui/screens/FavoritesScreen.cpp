@@ -2,11 +2,18 @@
 #include "../Theme.hpp"
 #include "../../util/Format.hpp"
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/component/component.hpp>
 
 namespace ymcli::ui::screens {
 
-FavoritesScreen::FavoritesScreen(PlayTrackCallback play_cb, UnfavoriteCallback unfav_cb)
-    : play_cb_(std::move(play_cb)), unfav_cb_(std::move(unfav_cb))
+FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
+                                 EnqueueCallback enqueue_cb,
+                                 AddToPlaylistCallback add_to_pl_cb,
+                                 UnfavoriteCallback unfav_cb)
+    : play_cb_(std::move(play_cb)),
+      enqueue_cb_(std::move(enqueue_cb)),
+      add_to_pl_cb_(std::move(add_to_pl_cb)),
+      unfav_cb_(std::move(unfav_cb))
 {
     auto dummy = ftxui::Container::Vertical({});
 
@@ -17,7 +24,8 @@ FavoritesScreen::FavoritesScreen(PlayTrackCallback play_cb, UnfavoriteCallback u
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
             ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
             ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex,
+            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
@@ -25,7 +33,7 @@ FavoritesScreen::FavoritesScreen(PlayTrackCallback play_cb, UnfavoriteCallback u
 
         if (favorites_.empty()) {
             rows.push_back(
-                ftxui::text("No favorite songs yet. Press 'f' on any song to add it to your favorites.")
+                ftxui::text("No saved songs found. Press 'f' on any song to save it here.")
                 | ftxui::color(Theme::TextTertiary) | ftxui::center
             );
         } else {
@@ -33,11 +41,20 @@ FavoritesScreen::FavoritesScreen(PlayTrackCallback play_cb, UnfavoriteCallback u
                 const auto& song = favorites_[i];
                 bool is_sel = (static_cast<int>(i) == selected_);
 
+                auto cursor_text = is_sel ? "▸ " : "  ";
+                auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
+
+                std::string title_str = ymcli::truncate(song.title, 34);
+                std::string artist_str = ymcli::truncate(song.artist, 22);
+                std::string album_str = ymcli::truncate(song.album, 28);
+                std::string time_str = song.duration_text.empty() ? "--:--" : song.duration_text;
+
                 auto row = ftxui::hbox({
-                    ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-                    ftxui::text(ymcli::truncate(song.title, 34)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-                    ftxui::text(ymcli::truncate(song.album, 28)) | ftxui::color(Theme::TextTertiary) | ftxui::flex
+                    ftxui::text(cursor_text) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+                    ftxui::text(artist_str) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(album_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
+                    ftxui::text(time_str) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                 });
 
                 if (is_sel) {
@@ -50,8 +67,10 @@ FavoritesScreen::FavoritesScreen(PlayTrackCallback play_cb, UnfavoriteCallback u
 
         return ftxui::vbox({
             ftxui::hbox({
-                ftxui::text("FAVORITE TRACKS") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(favorites_.size()) + " saved)") | ftxui::color(Theme::TextTertiary)
+                ftxui::text("SAVED SONGS & FAVORITES") | ftxui::bold | ftxui::color(Theme::Accent),
+                ftxui::text(" (" + std::to_string(favorites_.size()) + " tracks)") | ftxui::color(Theme::TextTertiary),
+                ftxui::filler(),
+                ftxui::text("[Enter] Play  [a] Add to Queue  [l] Save to List  [f] Unfavorite") | ftxui::color(Theme::TextTertiary)
             }),
             ftxui::separator() | ftxui::color(Theme::Border),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
@@ -71,7 +90,19 @@ FavoritesScreen::FavoritesScreen(PlayTrackCallback play_cb, UnfavoriteCallback u
         }
         if (event == ftxui::Event::Return) {
             if (play_cb_ && selected_ >= 0 && selected_ < static_cast<int>(favorites_.size())) {
-                play_cb_(favorites_[selected_]);
+                play_cb_(favorites_, selected_);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('a')) {
+            if (enqueue_cb_ && selected_ >= 0 && selected_ < static_cast<int>(favorites_.size())) {
+                enqueue_cb_(favorites_[selected_]);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('l') || event == ftxui::Event::Character('+')) {
+            if (add_to_pl_cb_ && selected_ >= 0 && selected_ < static_cast<int>(favorites_.size())) {
+                add_to_pl_cb_(favorites_[selected_]);
             }
             return true;
         }
