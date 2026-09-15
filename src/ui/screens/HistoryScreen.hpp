@@ -1,21 +1,27 @@
 #pragma once
+
 #include <ftxui/component/component.hpp>
 #include <vector>
-#include <string>
+#include <functional>
+#include "../../api/Models.hpp"
 
 namespace ymcli::ui::screens {
 
-struct HistoryItem { std::string title; std::string artist; std::string time; };
-
 class HistoryScreen {
 public:
-    HistoryScreen();
+    using PlayTrackCallback = std::function<void(const Track& track)>;
+
+    HistoryScreen(PlayTrackCallback play_cb = nullptr);
     ftxui::Component GetComponent();
-    void SetHistory(const std::vector<HistoryItem>& items);
+
+    void SetHistory(const std::vector<Track>& history);
 
 private:
-    std::vector<HistoryItem> items_;
+    std::vector<Track> history_;
     int selected_ = 0;
+
+    PlayTrackCallback play_cb_;
+
     ftxui::Component component_;
 };
 
