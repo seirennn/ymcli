@@ -1,89 +1,136 @@
 # ymcli
 
-I built ymcli because I work in the terminal all day, and switching over to a browser just to search for a track or pause a song felt clunky and slow. Navigating and searching with vim keys in the terminal is just so much faster. It was also a fun project to get better at writing modern C++.
+A keyboard-driven audio client for YouTube Music, built in C++20.
 
-It streams audio directly through libmpv, talks to YouTube Music's InnerTube API, and renders a clean, quiet interface with FTXUI.
+I built ymcli because I work in the terminal all day, and switching to a browser just to search for a track or pause a song felt clunky. Navigating and searching with vim keys is just faster. It streams audio directly through libmpv, talks to YouTube Music's InnerTube API, and renders a clean, quiet interface with FTXUI.
 
+![ymcli](assets/screenshot.png)
 
-## Prerequisites
+---
 
-You'll need mpv, yt-dlp, and cmake:
+## Install
 
-  brew install mpv yt-dlp cmake openssl@3
+### Prerequisites
 
+```
+brew install mpv yt-dlp cmake openssl@3
+```
 
-## Building & Installing
+### Build
 
-  git clone https://github.com/seirennn/ymcli.git
-  cd ymcli
-  mkdir build && cd build
-  cmake ..
-  make -j$(sysctl -n hw.ncpu)
-  sudo make install
+```
+git clone https://github.com/seirennn/ymcli.git
+cd ymcli
+mkdir build && cd build
+cmake ..
+make -j$(sysctl -n hw.ncpu)
+sudo make install
+```
 
+### Run
 
-## Controls
+```
+ymcli
+```
 
-Press ? inside ymcli anytime to open the shortcuts cheatsheet.
+Flags:
 
-Playback:
-  space       Play or pause
-  n           Next track
-  p           Previous track (or restarts track if > 3s)
-  < / >       Seek backward / forward 10s
-  + / -       Volume up / down
-  m           Toggle mute
-  s           Toggle shuffle
-  r           Cycle repeat mode
+```
+ymcli --help
+ymcli --version
+```
 
-Navigation:
-  /               Focus search bar
-  j / k           Move up / down
-  Enter           Play song & queue upcoming tracks
-  Shift + ← / →   Switch pane (sidebar ↔ main content)
-  Tab             Toggle pane focus or section
-  Shift + F / F   Fullscreen player & atmospheric audio visualizer
-  1 to 7          Switch tabs (Home, Search, Library, Queue, History, Favorites, Settings)
-  ?               Shortcuts cheatsheet
-  Esc             Unfocus / Go back
-  q               Quit
-
-Track Actions:
-  a           Add highlighted track to current queue
-  l or +      Add track to a playlist
-  f           Save / Favorite track
-  P           Play all tracks (in album / playlist)
-  A           Add all tracks to play queue
-  d           Delete track or local playlist
-
-
-## Library & Playlists
-
-Tab 3 (Library) loads your YouTube Music account playlists (like Liked Music, custom playlists, etc.) as well as your local playlists saved in ymcli.
-
-You can press n in the Library tab to create a new local playlist, or press l on any song anywhere in the app to save it into a playlist.
-
+---
 
 ## Authentication
 
-You can use ymcli completely unauthenticated for public searches, but logging in lets you load your saved playlists, liked music, and history.
+ymcli works unauthenticated for public searches. Logging in loads your saved playlists, liked music, and history.
 
-The easiest way is 1-click auto-login:
-  1. Go to Settings (press 7).
-  2. Hit the Auto-Detect Browser button. It reads your local browser session (Arc, Chrome, Brave, Edge, Firefox, etc.) and signs you in immediately.
+**Auto-detect (recommended)**
+1. Open Settings (`7`)
+2. Select Auto-Detect Browser — reads your local browser session (Arc, Chrome, Brave, Edge, Firefox) and signs in immediately.
 
-If you prefer manual cookies:
-  1. Open music.youtube.com in your browser.
-  2. Open DevTools (F12) -> Network tab, click any request to youtubei.
-  3. Copy your Cookie string, paste it in Settings, and hit Authenticate.
+**Manual cookies**
+1. Open `music.youtube.com` in your browser.
+2. DevTools (`F12`) → Network → copy `Cookie` from any `youtubei` request.
+3. Paste in Settings → Authenticate.
 
-Sessions and cookies are saved in ~/.config/ymcli/.
+Sessions are stored in `~/.config/ymcli/`.
 
+---
 
-## Tech Stack
+## Controls
 
-  C++20
-  FTXUI for terminal UI
-  libmpv & yt-dlp for audio streaming
-  SQLite3 for local history, favorites, and playlists
-  cpp-httplib & nlohmann/json for API requests
+Press `?` inside ymcli anytime to open the full shortcuts cheatsheet.
+
+### Playback
+
+| Key | Action |
+|---|---|
+| `space` | Play / pause |
+| `n` | Next track |
+| `p` | Previous track (restarts if > 3s in) |
+| `<` / `>` | Seek backward / forward 10s |
+| `+` / `-` | Volume up / down |
+| `m` | Mute toggle |
+| `s` | Shuffle toggle |
+| `r` | Cycle repeat mode |
+
+### Navigation
+
+| Key | Action |
+|---|---|
+| `/` | Focus search bar |
+| `j` / `k` | Move down / up |
+| `Enter` | Play track and queue upcoming |
+| `Shift+←` / `Shift+→` | Switch pane (sidebar / content) |
+| `Tab` | Toggle pane focus |
+| `Shift+F` | Fullscreen player with visualizer |
+| `1` – `7` | Switch tabs |
+| `?` | Shortcuts cheatsheet |
+| `Esc` | Unfocus / go back |
+| `q` | Quit |
+
+### Tabs
+
+| Key | Tab |
+|---|---|
+| `1` | Home |
+| `2` | Search |
+| `3` | Library |
+| `4` | Queue |
+| `5` | History |
+| `6` | Favorites |
+| `7` | Settings |
+
+### Track Actions
+
+| Key | Action |
+|---|---|
+| `a` | Add track to queue |
+| `l` | Add track to a playlist |
+| `f` | Save / favorite track |
+| `P` | Play all tracks in album or playlist |
+| `A` | Add all tracks to queue |
+| `d` | Delete track or local playlist |
+
+---
+
+## Library & Playlists
+
+Tab `3` (Library) loads your YouTube Music playlists (Liked Music, custom playlists) and local playlists saved in ymcli.
+
+- Press `n` in Library to create a new local playlist.
+- Press `l` on any song anywhere to save it to a playlist.
+
+---
+
+## Stack
+
+| | |
+|---|---|
+| Language | C++20 |
+| Terminal UI | FTXUI |
+| Audio | libmpv + yt-dlp |
+| API | YouTube Music InnerTube (cpp-httplib + nlohmann/json) |
+| Storage | SQLite3 |
