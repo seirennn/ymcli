@@ -62,7 +62,7 @@ public:
     void cycleRepeat();
 
     bool authenticate(const std::string& cookie);
-    bool autoDetectAuth();
+    bool autoDetectAuth(std::string* out_browser = nullptr);
     bool isAuthenticated() const;
 
     void toggleFavorite(const Track& track);

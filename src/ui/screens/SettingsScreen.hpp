@@ -10,7 +10,7 @@ namespace ymcli::ui::screens {
 class SettingsScreen {
 public:
     using AuthCallback = std::function<bool(const std::string& cookie)>;
-    using AutoDetectCallback = std::function<bool()>;
+    using AutoDetectCallback = std::function<bool(std::string& out_browser)>;
 
     SettingsScreen(AuthCallback auth_cb = nullptr, AutoDetectCallback auto_cb = nullptr);
     ftxui::Component GetComponent();
@@ -24,6 +24,8 @@ private:
     
     std::string cookie_input_;
     bool is_authenticated_ = false;
+    std::string status_message_;
+    bool status_is_success_ = false;
 
     ftxui::Component volume_slider_;
     ftxui::Component quality_toggle_;

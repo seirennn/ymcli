@@ -69,8 +69,8 @@ bool App::authenticate(const std::string& cookie) {
     return api_->setAuthCookies(cookie);
 }
 
-bool App::autoDetectAuth() {
-    std::string cookies = CookieExtractor::autoExtractCookies();
+bool App::autoDetectAuth(std::string* out_browser) {
+    std::string cookies = CookieExtractor::autoExtractCookies(out_browser);
     if (!cookies.empty()) {
         return api_->setAuthCookies(cookies);
     }
@@ -115,7 +115,7 @@ void App::run() {
 
     ui::screens::SettingsScreen settings_screen(
         [this](const std::string& cookie) { return authenticate(cookie); },
-        [this]() { return autoDetectAuth(); }
+        [this](std::string& browser) { return autoDetectAuth(&browser); }
     );
 
     settings_screen.setAuthStatus(isAuthenticated());
