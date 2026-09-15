@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Disable strict non-existent interface directory checks for pkg-config imports on macOS
 if(APPLE)
     execute_process(
         COMMAND brew --prefix
@@ -24,10 +23,8 @@ if(APPLE)
     endif()
 endif()
 
-# --- FetchContent dependencies ---
 include(FetchContent)
 
-# FTXUI - Terminal UI
 FetchContent_Declare(
     ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
@@ -35,7 +32,6 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
-# nlohmann/json
 FetchContent_Declare(
     json
     GIT_REPOSITORY https://github.com/nlohmann/json
@@ -43,7 +39,6 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
-# cpp-httplib (with OpenSSL for HTTPS)
 FetchContent_Declare(
     httplib
     GIT_REPOSITORY https://github.com/yhirose/cpp-httplib
@@ -53,10 +48,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(ftxui json httplib)
 
-# --- System dependencies ---
 find_package(PkgConfig REQUIRED)
 
-# Manual MPV lookup fallback to avoid pkg-config invalid path error on Homebrew macOS
 find_path(MPV_INCLUDE_DIR NAMES mpv/client.h
     PATHS 
         "${HOMEBREW_PREFIX}/include" 
@@ -83,19 +76,16 @@ else()
     add_library(mpv_lib ALIAS PkgConfig::MPV)
 endif()
 
-# SQLite3
 find_package(SQLite3 REQUIRED)
-
-# OpenSSL (for cpp-httplib HTTPS)
 find_package(OpenSSL REQUIRED)
 
-# --- Main executable ---
 add_executable(ymcli
     src/main.cpp
     src/app/App.cpp
     src/audio/AudioEngine.cpp
     src/audio/Queue.cpp
     src/api/InnerTube.cpp
+    src/api/CookieExtractor.cpp
     src/api/ImageCache.cpp
     src/db/Database.cpp
     src/util/Format.cpp
@@ -116,8 +106,6 @@ add_executable(ymcli
 )
 
 target_include_directories(ymcli PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-
-# cpp-httplib needs CPPHTTPLIB_OPENSSL_SUPPORT defined
 target_compile_definitions(ymcli PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 
 target_link_libraries(ymcli PRIVATE
@@ -132,5 +120,4 @@ target_link_libraries(ymcli PRIVATE
     OpenSSL::Crypto
 )
 
-# --- Install ---
 install(TARGETS ymcli DESTINATION bin)

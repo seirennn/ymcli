@@ -4,13 +4,13 @@
 
 namespace ymcli::ui::screens {
 
-SettingsScreen::SettingsScreen(AuthCallback auth_cb) {
+SettingsScreen::SettingsScreen(AuthCallback auth_cb, AutoDetectCallback auto_cb) {
     volume_slider_ = ftxui::Slider("Volume: ", &volume_, 0, 100, 5);
     quality_toggle_ = ftxui::Toggle(&quality_options_, &quality_index_);
 
-    cookie_field_ = ftxui::Input(&cookie_input_, "Paste raw Cookie string (containing SAPISID=...)");
+    cookie_field_ = ftxui::Input(&cookie_input_, "Or paste raw Cookie string here (SAPISID=...)");
 
-    auth_button_ = ftxui::Button(" Authenticate ", [this, auth_cb] {
+    auth_button_ = ftxui::Button(" Manual Login ", [this, auth_cb] {
         if (auth_cb && !cookie_input_.empty()) {
             is_authenticated_ = auth_cb(cookie_input_);
             if (is_authenticated_) {
@@ -19,11 +19,18 @@ SettingsScreen::SettingsScreen(AuthCallback auth_cb) {
         }
     });
 
+    auto_detect_button_ = ftxui::Button(" ⚡ Auto-Detect & Login from Browser ", [this, auto_cb] {
+        if (auto_cb) {
+            is_authenticated_ = auto_cb();
+        }
+    });
+
     btn_clear_history_ = ftxui::Button(" Clear History ", [] {
         // Clear history action
     });
 
     auto container = ftxui::Container::Vertical({
+        auto_detect_button_,
         cookie_field_,
         auth_button_,
         volume_slider_,
@@ -45,7 +52,9 @@ SettingsScreen::SettingsScreen(AuthCallback auth_cb) {
                     ftxui::text("Status: ") | ftxui::color(Theme::TextSecondary),
                     ftxui::text(auth_badge) | auth_color | ftxui::bold
                 }),
-                ftxui::text("To access your liked songs, playlists, and history, paste your browser cookies below.") | ftxui::color(Theme::TextTertiary),
+                ftxui::text("1-Click Auto Login extracts YouTube Music cookies directly from your Arc, Chrome, Brave, or Firefox browser profile.") | ftxui::color(Theme::TextTertiary),
+                auto_detect_button_->Render() | ftxui::color(Theme::Accent),
+                ftxui::separator() | ftxui::color(Theme::Border),
                 cookie_field_->Render() | ftxui::borderRounded | ftxui::color(Theme::Border),
                 auth_button_->Render() | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 20)
             }) | ftxui::borderRounded | ftxui::color(Theme::Border),

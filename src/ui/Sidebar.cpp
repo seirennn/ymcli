@@ -10,17 +10,23 @@ Sidebar::Sidebar() {
     ftxui::MenuOption option;
     option.entries_option.transform = [](const ftxui::EntryState& state) {
         if (state.active) {
-            return ftxui::text("▸ " + state.label) | ftxui::color(Theme::TextPrimary) | ftxui::bold;
+            return ftxui::hbox({
+                ftxui::text("▸ ") | ftxui::color(Theme::Accent),
+                ftxui::text(state.label) | ftxui::color(Theme::TextPrimary) | ftxui::bold
+            }) | ftxui::bgcolor(Theme::Elevated);
         }
-        return ftxui::text("  " + state.label) | ftxui::color(Theme::TextSecondary);
+        return ftxui::hbox({
+            ftxui::text("  ") | ftxui::color(Theme::TextTertiary),
+            ftxui::text(state.label) | ftxui::color(Theme::TextSecondary)
+        });
     };
 
     menu_ = ftxui::Menu(&items_, &selected_, option);
 
     component_ = ftxui::Renderer(menu_, [this] {
-        auto header = ftxui::text("ymcli") | ftxui::color(Theme::DimAccent) | ftxui::center;
+        auto title = ftxui::text("Y M C L I") | ftxui::bold | ftxui::color(Theme::Accent) | ftxui::center;
         return ftxui::vbox({
-            header,
+            title,
             ftxui::separator() | ftxui::color(Theme::Border),
             menu_->Render() | ftxui::flex
         }) | ftxui::bgcolor(Theme::SecondaryBg);
@@ -28,7 +34,7 @@ Sidebar::Sidebar() {
 
     component_ |= ftxui::CatchEvent([this](ftxui::Event event) {
         if (event == ftxui::Event::Character('j')) {
-            selected_ = std::min((int)items_.size() - 1, selected_ + 1);
+            selected_ = std::min(static_cast<int>(items_.size()) - 1, selected_ + 1);
             return true;
         }
         if (event == ftxui::Event::Character('k')) {

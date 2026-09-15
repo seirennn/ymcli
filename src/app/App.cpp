@@ -1,6 +1,7 @@
 #include "App.hpp"
 #include "audio/AudioEngine.hpp"
 #include "api/InnerTube.hpp"
+#include "api/CookieExtractor.hpp"
 #include "db/Database.hpp"
 
 #include "ui/Theme.hpp"
@@ -68,6 +69,14 @@ bool App::authenticate(const std::string& cookie) {
     return api_->setAuthCookies(cookie);
 }
 
+bool App::autoDetectAuth() {
+    std::string cookies = CookieExtractor::autoExtractCookies();
+    if (!cookies.empty()) {
+        return api_->setAuthCookies(cookies);
+    }
+    return false;
+}
+
 bool App::isAuthenticated() const {
     return api_->isAuthenticated();
 }
@@ -86,9 +95,10 @@ void App::run() {
     ui::screens::QueueScreen queue_screen;
     ui::screens::HistoryScreen history_screen;
     ui::screens::FavoritesScreen favorites_screen;
-    ui::screens::SettingsScreen settings_screen([this](const std::string& cookie) {
-        return authenticate(cookie);
-    });
+    ui::screens::SettingsScreen settings_screen(
+        [this](const std::string& cookie) { return authenticate(cookie); },
+        [this]() { return autoDetectAuth(); }
+    );
 
     settings_screen.setAuthStatus(isAuthenticated());
 
@@ -141,7 +151,7 @@ void App::run() {
     ui::Layout layout(sidebar, search_bar, content_tab, now_playing);
     auto root = layout.GetComponent();
 
-    root |= ftxui::CatchEvent([this, &syncState](ftxui::Event event) {
+    root |= ftxui::CatchEvent([this, &search_screen, &syncState](ftxui::Event event) {
         if (event == ftxui::Event::Character('q')) {
             screen_ref_->screen.ExitLoopClosure()();
             return true;
