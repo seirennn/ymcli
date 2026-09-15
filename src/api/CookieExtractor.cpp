@@ -91,8 +91,17 @@ std::string CookieExtractor::autoExtractCookies(std::string* out_browser) {
             "SSID",
             "HSID",
             "SID",
+            "__Secure-1PSID",
+            "__Secure-3PSID",
+            "__Secure-1PSIDTS",
+            "__Secure-3PSIDTS",
+            "SIDCC",
+            "__Secure-1PSIDCC",
+            "__Secure-3PSIDCC",
             "LOGIN_INFO",
-            "VISITOR_INFO1_LIVE"
+            "VISITOR_INFO1_LIVE",
+            "PREF",
+            "YSC"
         };
 
         const char* env_home = std::getenv("HOME");
@@ -136,20 +145,24 @@ std::string CookieExtractor::autoExtractCookies(std::string* out_browser) {
                 sqlite3* db = nullptr;
                 if (sqlite3_open_v2(tmp_db.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
                     sqlite3_stmt* stmt = nullptr;
-                    const char* sql = "SELECT name, value FROM moz_cookies WHERE host LIKE '%youtube.com%'";
+                    const char* sql = "SELECT name, value, host FROM moz_cookies WHERE host LIKE '%youtube.com%' OR host LIKE '%google.com%'";
                     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-                        std::string result_cookies;
+                        std::unordered_map<std::string, std::string> cookies_map;
                         bool found_auth = false;
 
                         while (sqlite3_step(stmt) == SQLITE_ROW) {
                             const char* name_p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
                             const char* val_p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                            const char* host_p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
                             if (!name_p || !val_p) continue;
                             std::string name = name_p;
                             std::string val = val_p;
+                            std::string host = host_p ? host_p : "";
                             if (valid_auth_cookie_names.find(name) != valid_auth_cookie_names.end() && isPrintableAscii(val)) {
-                                if (!result_cookies.empty()) result_cookies += "; ";
-                                result_cookies += name + "=" + val;
+                                bool is_yt = (host.find("youtube.com") != std::string::npos);
+                                if (is_yt || cookies_map.find(name) == cookies_map.end()) {
+                                    cookies_map[name] = val;
+                                }
                                 if (name == "SAPISID" || name == "__Secure-3PAPISID") {
                                     found_auth = true;
                                 }
@@ -157,7 +170,12 @@ std::string CookieExtractor::autoExtractCookies(std::string* out_browser) {
                         }
                         sqlite3_finalize(stmt);
 
-                        if (found_auth && !result_cookies.empty()) {
+                        if (found_auth && !cookies_map.empty()) {
+                            std::string result_cookies;
+                            for (const auto& [name, val] : cookies_map) {
+                                if (!result_cookies.empty()) result_cookies += "; ";
+                                result_cookies += name + "=" + val;
+                            }
                             sqlite3_close(db);
                             fs::remove(tmp_db, ec);
                             fs::remove(tmp_wal, ec);
@@ -222,25 +240,29 @@ std::string CookieExtractor::autoExtractCookies(std::string* out_browser) {
             sqlite3* db = nullptr;
             if (sqlite3_open_v2(tmp_db.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
                 sqlite3_stmt* stmt = nullptr;
-                const char* sql = "SELECT name, encrypted_value FROM cookies WHERE host_key LIKE '%youtube.com%'";
+                const char* sql = "SELECT name, encrypted_value, host_key FROM cookies WHERE host_key LIKE '%youtube.com%' OR host_key LIKE '%google.com%'";
                 if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-                    std::string result_cookies;
+                    std::unordered_map<std::string, std::string> cookies_map;
                     bool found_auth = false;
 
                     while (sqlite3_step(stmt) == SQLITE_ROW) {
                         const char* name_p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
                         const void* blob = sqlite3_column_blob(stmt, 1);
                         int blob_bytes = sqlite3_column_bytes(stmt, 1);
+                        const char* host_p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
                         if (!name_p || !blob || blob_bytes == 0) continue;
 
                         std::string name = name_p;
                         if (valid_auth_cookie_names.find(name) == valid_auth_cookie_names.end()) continue;
 
+                        std::string host = host_p ? host_p : "";
                         std::string enc_val(reinterpret_cast<const char*>(blob), blob_bytes);
                         std::string dec_val = decryptChromeValue(enc_val, pass);
                         if (!dec_val.empty()) {
-                            if (!result_cookies.empty()) result_cookies += "; ";
-                            result_cookies += name + "=" + dec_val;
+                            bool is_yt = (host.find("youtube.com") != std::string::npos);
+                            if (is_yt || cookies_map.find(name) == cookies_map.end()) {
+                                cookies_map[name] = dec_val;
+                            }
                             if (name == "SAPISID" || name == "__Secure-3PAPISID") {
                                 found_auth = true;
                             }
@@ -248,7 +270,12 @@ std::string CookieExtractor::autoExtractCookies(std::string* out_browser) {
                     }
                     sqlite3_finalize(stmt);
 
-                    if (found_auth && !result_cookies.empty()) {
+                    if (found_auth && !cookies_map.empty()) {
+                        std::string result_cookies;
+                        for (const auto& [name, val] : cookies_map) {
+                            if (!result_cookies.empty()) result_cookies += "; ";
+                            result_cookies += name + "=" + val;
+                        }
                         sqlite3_close(db);
                         fs::remove(tmp_db, ec);
                         fs::remove(tmp_wal, ec);

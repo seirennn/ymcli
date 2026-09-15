@@ -3,23 +3,26 @@
 #include <vector>
 #include <string>
 
-namespace ymcli::ui::screens {
+#include "../../api/Models.hpp"
+#include <functional>
 
-struct RecentPlay {
-    std::string title;
-    std::string artist;
-};
+namespace ymcli::ui::screens {
 
 class HomeScreen {
 public:
-    HomeScreen();
+    using PlayTracksCallback = std::function<void(const std::vector<Track>& tracks, size_t index)>;
+    using EnqueueCallback    = std::function<void(const Track& track)>;
+
+    explicit HomeScreen(PlayTracksCallback play_cb = nullptr,
+                        EnqueueCallback enqueue_cb = nullptr);
     ftxui::Component GetComponent();
-    void SetRecentPlays(const std::vector<RecentPlay>& plays);
+    void SetRecentTracks(const std::vector<Track>& tracks);
 
 private:
-    std::vector<RecentPlay> recent_plays_;
+    std::vector<Track> recent_tracks_;
     int selected_ = 0;
-    ftxui::Component menu_;
+    PlayTracksCallback play_cb_;
+    EnqueueCallback enqueue_cb_;
     ftxui::Component component_;
 };
 

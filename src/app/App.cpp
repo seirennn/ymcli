@@ -107,11 +107,7 @@ void App::syncCloudData() {
 
 void App::updateDataViews() {
     auto recent = db_->getPlayHistory(15);
-    std::vector<ui::screens::RecentPlay> home_plays;
-    for (const auto& t : recent) {
-        home_plays.push_back({t.title, t.artist});
-    }
-    if (home_screen_ptr_) home_screen_ptr_->SetRecentPlays(home_plays);
+    if (home_screen_ptr_) home_screen_ptr_->SetRecentTracks(recent);
     if (history_screen_ptr_) history_screen_ptr_->SetHistory(recent);
 
     // Merge cloud liked songs with local favorites
@@ -232,7 +228,10 @@ void App::run() {
         search(query);
     });
 
-    ui::screens::HomeScreen home_screen;
+    ui::screens::HomeScreen home_screen(
+        [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
+        [this](const Track& t) { addToQueue(t); }
+    );
 
     ui::screens::SearchScreen search_screen(
         [this](const std::vector<Track>& t, size_t idx) { playTracks(t, idx); },
@@ -334,6 +333,10 @@ void App::run() {
     settings_screen_ptr_ = &settings_screen;
 
     updateDataViews();
+    if (!isAuthenticated()) {
+        std::string browser;
+        autoDetectAuth(&browser);
+    }
     if (isAuthenticated()) {
         syncCloudData();
     }
@@ -598,11 +601,17 @@ void App::run() {
         }
         if (is_shift_right || event == ftxui::Event::Character('L')) {
             content_tab->TakeFocus();
+            if (content_tab->ActiveChild()) {
+                content_tab->ActiveChild()->TakeFocus();
+            }
             return true;
         }
         if (event == ftxui::Event::Tab || event == ftxui::Event::TabReverse) {
             if (sidebar.GetComponent()->Focused()) {
                 content_tab->TakeFocus();
+                if (content_tab->ActiveChild()) {
+                    content_tab->ActiveChild()->TakeFocus();
+                }
             } else {
                 sidebar.GetComponent()->TakeFocus();
             }
@@ -661,13 +670,13 @@ void App::run() {
             seekRelative(-10.0);
             return true;
         }
-        if (event == ftxui::Event::Character('1')) { active_screen_ = 0; sidebar.SetSelectedIndex(0); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('1')) { active_screen_ = 0; sidebar.SetSelectedIndex(0); content_tab->TakeFocus(); if (content_tab->ActiveChild()) content_tab->ActiveChild()->TakeFocus(); return true; }
         if (event == ftxui::Event::Character('2')) { active_screen_ = 1; sidebar.SetSelectedIndex(1); search_screen.GetComponent()->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('3')) { active_screen_ = 2; sidebar.SetSelectedIndex(2); content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('4')) { active_screen_ = 3; sidebar.SetSelectedIndex(3); content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('5')) { active_screen_ = 4; sidebar.SetSelectedIndex(4); content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('6')) { active_screen_ = 5; sidebar.SetSelectedIndex(5); content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('7')) { active_screen_ = 6; sidebar.SetSelectedIndex(6); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('3')) { active_screen_ = 2; sidebar.SetSelectedIndex(2); content_tab->TakeFocus(); if (content_tab->ActiveChild()) content_tab->ActiveChild()->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('4')) { active_screen_ = 3; sidebar.SetSelectedIndex(3); content_tab->TakeFocus(); if (content_tab->ActiveChild()) content_tab->ActiveChild()->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('5')) { active_screen_ = 4; sidebar.SetSelectedIndex(4); content_tab->TakeFocus(); if (content_tab->ActiveChild()) content_tab->ActiveChild()->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('6')) { active_screen_ = 5; sidebar.SetSelectedIndex(5); content_tab->TakeFocus(); if (content_tab->ActiveChild()) content_tab->ActiveChild()->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('7')) { active_screen_ = 6; sidebar.SetSelectedIndex(6); content_tab->TakeFocus(); if (content_tab->ActiveChild()) content_tab->ActiveChild()->TakeFocus(); return true; }
 
         return false;
     });

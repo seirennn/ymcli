@@ -15,9 +15,7 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
       add_to_pl_cb_(std::move(add_to_pl_cb)),
       unfav_cb_(std::move(unfav_cb))
 {
-    auto dummy = ftxui::Container::Vertical({});
-
-    component_ = ftxui::Renderer(dummy, [this] {
+    component_ = ftxui::Renderer([this](bool focused) {
         ftxui::Elements rows;
 
         auto header_row = ftxui::hbox({
@@ -42,7 +40,7 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
                 bool is_sel = (static_cast<int>(i) == selected_);
 
                 auto cursor_text = is_sel ? "> " : "  ";
-                auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
+                auto cursor_color = is_sel ? (focused ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextSecondary)) : ftxui::color(Theme::TextTertiary);
 
                 std::string title_str = ymcli::truncate(song.title, 34);
                 std::string artist_str = ymcli::truncate(song.artist, 22);
@@ -52,13 +50,13 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
                 auto row = ftxui::hbox({
                     ftxui::text(cursor_text) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(artist_str) | ftxui::color(is_sel ? Theme::Accent : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(artist_str) | ftxui::color(is_sel ? (focused ? Theme::Accent : Theme::TextSecondary) : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(album_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
                     ftxui::text(time_str) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                 });
 
                 if (is_sel) {
-                    row = row | ftxui::bgcolor(Theme::Elevated);
+                    row = row | ftxui::bgcolor(focused ? Theme::Elevated : Theme::Surface);
                 }
 
                 rows.push_back(row);

@@ -15,9 +15,11 @@ FullscreenPlayer::FullscreenPlayer(const PlaybackState& state)
 
 void FullscreenPlayer::Tick() {
     if (state_.has_track && !state_.is_paused) {
-        // Slow, continuous ambient phase progression (approx 0.04 per tick at 16 FPS)
-        anim_phase_ += 0.04;
+        // Continuous organic phase progression and stereo pan modulation
+        anim_phase_ += 0.08;
+        pan_phase_ += 0.035;
         if (anim_phase_ > 100000.0) anim_phase_ = 0.0;
+        if (pan_phase_ > 100000.0) pan_phase_ = 0.0;
     }
 }
 
@@ -35,40 +37,92 @@ ftxui::Element FullscreenPlayer::RenderVisualizer(int num_bars, int max_height) 
         " ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"
     };
 
+    if (bar_levels_.size() != static_cast<size_t>(num_bars)) {
+        bar_levels_.assign(num_bars, 0.05);
+        peak_levels_.assign(num_bars, 0.05);
+    }
+
+    // Volume energy scaling: muted or 0 vol settles calmly, full vol expands
+    double vol_scale = 0.05;
+    if (state_.has_track && !state_.is_paused) {
+        if (state_.is_muted || state_.volume <= 0.0) {
+            vol_scale = 0.04;
+        } else {
+            vol_scale = std::clamp(std::pow(state_.volume / 100.0, 0.8), 0.12, 1.0);
+        }
+    }
+
+    // Dynamic stereo pan drift across the soundstage
+    double pan_bias = std::sin(pan_phase_) * 0.35;
+
     ftxui::Elements columns;
     for (int col = 0; col < num_bars; ++col) {
-        // Normalized index 0.0 .. 1.0
         double norm_idx = static_cast<double>(col) / std::max(1, num_bars - 1);
 
-        // Acoustic spectral envelope (bell-shaped resonance emphasizing low-mids)
-        double envelope = 0.35 + 0.65 * std::sin(norm_idx * 3.14159265);
-        if (norm_idx < 0.15) {
-            envelope = 0.4 + 0.6 * (norm_idx / 0.15); // gentle sub-bass taper
+        // Acoustic spectral envelope: low-mid warmth, natural high roll-off
+        double envelope = 0.30 + 0.70 * std::sin(norm_idx * 3.14159265);
+        if (norm_idx < 0.12) {
+            envelope = 0.35 + 0.65 * (norm_idx / 0.12);
         }
 
-        double val = 0.08;
-        if (state_.has_track) {
-            // Harmonic wave synthesis: calm, organic fluctuations without jarring spikes
-            double h1 = std::sin(anim_phase_ * 0.9 + col * 0.22);
-            double h2 = std::cos(anim_phase_ * 0.55 - col * 0.14 + 1.1);
-            double h3 = std::sin(anim_phase_ * 0.3 + col * 0.45 + 2.3);
+        double target = 0.04;
+        if (state_.has_track && !state_.is_paused) {
+            // Stereo panning modulation (left soundstage vs right soundstage)
+            double pan_mod = 1.0 + (norm_idx - 0.5) * 2.0 * pan_bias;
+            pan_mod = std::clamp(pan_mod, 0.65, 1.35);
 
-            double dynamic_mod = 0.52 + 0.26 * h1 + 0.14 * h2 + 0.08 * h3;
-            val = envelope * dynamic_mod;
-            if (val < 0.06) val = 0.06;
-            if (val > 0.95) val = 0.95;
+            // Multi-band frequency dynamics
+            double band_energy = 0.0;
+            if (norm_idx < 0.28) {
+                // Sub-bass & Bass: rhythmic beat swell + low rumble
+                double beat = std::pow(std::max(0.0, std::sin(state_.position * 3.14159265 * 2.2)), 6.0);
+                double sub = std::sin(anim_phase_ * 1.1 + col * 0.35);
+                band_energy = 0.48 + 0.38 * beat + 0.22 * sub;
+            } else if (norm_idx < 0.72) {
+                // Mids & High-Mids: vocal presence and melodic motion
+                double m1 = std::sin(anim_phase_ * 0.85 + col * 0.25);
+                double m2 = std::cos(anim_phase_ * 0.50 - col * 0.18 + 1.4);
+                band_energy = 0.44 + 0.28 * m1 + 0.16 * m2;
+            } else {
+                // Highs & Air: percussion flutter and delicate shimmer
+                double h1 = std::sin(anim_phase_ * 1.6 + col * 0.55);
+                double h2 = std::cos(anim_phase_ * 1.2 - col * 0.35 + 0.8);
+                band_energy = 0.38 + 0.30 * h1 + 0.14 * h2;
+            }
+
+            target = envelope * band_energy * vol_scale * pan_mod;
+            target = std::clamp(target, 0.05, 0.96);
         }
 
-        // Generate vertical column of elements (from top row to bottom row)
-        double total_level = val * max_height;
+        // Ballistics: fast attack, smooth exponential analog decay
+        if (target > bar_levels_[col]) {
+            bar_levels_[col] += (target - bar_levels_[col]) * 0.50;
+        } else {
+            bar_levels_[col] += (target - bar_levels_[col]) * 0.16;
+        }
+
+        // Peak Hold
+        if (bar_levels_[col] >= peak_levels_[col]) {
+            peak_levels_[col] = bar_levels_[col];
+        } else {
+            peak_levels_[col] = std::max(bar_levels_[col], peak_levels_[col] - 0.018);
+        }
+
+        // Render column with floating peak cap
+        double total_level = bar_levels_[col] * max_height;
+        int peak_row = static_cast<int>(peak_levels_[col] * max_height);
+        peak_row = std::clamp(peak_row, 0, max_height - 1);
+
         ftxui::Elements col_cells;
-
         for (int r = max_height - 1; r >= 0; --r) {
             double cell_fill = total_level - r;
             std::string glyph = " ";
             ftxui::Color cell_color = Theme::SecondaryBg;
 
-            if (cell_fill >= 1.0) {
+            if (r == peak_row && r > 1 && cell_fill < 0.2) {
+                glyph = "▔"; // floating peak cap
+                cell_color = Theme::Accent;
+            } else if (cell_fill >= 1.0) {
                 glyph = "█";
             } else if (cell_fill > 0.0) {
                 int block_idx = static_cast<int>(cell_fill * 8.0);
@@ -76,13 +130,19 @@ ftxui::Element FullscreenPlayer::RenderVisualizer(int num_bars, int max_height) 
                 glyph = blocks[block_idx];
             }
 
-            // Subdued vertical color gradient: warm slate base to warm terracotta peak
-            if (r >= 7) {
-                cell_color = Theme::Accent; // Peak: #d99178
-            } else if (r >= 4) {
-                cell_color = Theme::DimAccent; // Mid: #b56850
-            } else {
-                cell_color = ftxui::Color::RGB(55, 45, 42); // Base: subdued warm charcoal
+            // Warm atmospheric gradient conforming to design system
+            if (glyph != " ") {
+                if (cell_color != Theme::Accent) {
+                    if (r >= 8) {
+                        cell_color = Theme::Accent; // Peak terracotta: #d99178
+                    } else if (r >= 5) {
+                        cell_color = Theme::DimAccent; // Mid terracotta: #b56850
+                    } else if (r >= 2) {
+                        cell_color = ftxui::Color::RGB(95, 68, 60); // Warm umber
+                    } else {
+                        cell_color = ftxui::Color::RGB(55, 45, 42); // Warm charcoal base
+                    }
+                }
             }
 
             col_cells.push_back(ftxui::text(glyph) | ftxui::color(cell_color));
@@ -96,6 +156,12 @@ ftxui::Element FullscreenPlayer::RenderVisualizer(int num_bars, int max_height) 
 
 ftxui::Component FullscreenPlayer::GetComponent() {
     return ftxui::Renderer([this]() -> ftxui::Element {
+        // Panning indicator text for header
+        double pan_bias = std::sin(pan_phase_) * 0.35;
+        std::string pan_str = "[pan: center]";
+        if (pan_bias < -0.15) pan_str = "[pan: ◀ left]";
+        else if (pan_bias > 0.15) pan_str = "[pan: right ▶]";
+
         // 1. Top Header Bar with macOS Window Dots
         auto top_bar = ftxui::hbox({
             Theme::window_dots(),
@@ -103,13 +169,14 @@ ftxui::Component FullscreenPlayer::GetComponent() {
             ftxui::text(" ▊") | ftxui::color(Theme::PrimaryDark),
             ftxui::text("  ") | ftxui::color(Theme::BorderLight),
             ftxui::text(state_.has_track && !state_.is_paused ? "● streaming" : "● paused") | ftxui::color(state_.has_track && !state_.is_paused ? Theme::Success : Theme::Accent),
+            ftxui::text("  " + pan_str) | ftxui::color(Theme::KeywordBlue),
             ftxui::filler(),
             ftxui::text("[Shift+F / Esc] Exit  ") | ftxui::color(Theme::TextTertiary)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         // 2. Center Visualizer Area
-        int num_bars = 48;
-        int vis_height = 10;
+        int num_bars = 52;
+        int vis_height = 12;
         auto visualizer_elem = RenderVisualizer(num_bars, vis_height);
 
         std::string title_str = state_.has_track ? (state_.title.empty() ? "Unknown Title" : state_.title) : "No track playing";

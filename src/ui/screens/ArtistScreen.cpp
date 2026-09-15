@@ -19,9 +19,7 @@ ArtistScreen::ArtistScreen(PlayTracksCallback play_cb,
       fav_cb_(std::move(fav_cb)),
       back_cb_(std::move(back_cb))
 {
-    auto dummy = ftxui::Container::Vertical({});
-
-    component_ = ftxui::Renderer(dummy, [this] {
+    component_ = ftxui::Renderer([this](bool focused) {
         ftxui::Elements song_elements;
         for (size_t i = 0; i < songs_.size(); ++i) {
             const auto& s = songs_[i];

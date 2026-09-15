@@ -17,9 +17,7 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
       fav_cb_(std::move(fav_cb)),
       back_cb_(std::move(back_cb))
 {
-    auto dummy = ftxui::Container::Vertical({});
-
-    component_ = ftxui::Renderer(dummy, [this] {
+    component_ = ftxui::Renderer([this](bool focused) {
         ftxui::Elements rows;
 
         auto header_row = ftxui::hbox({

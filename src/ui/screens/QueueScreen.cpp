@@ -8,9 +8,7 @@ namespace ymcli::ui::screens {
 QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_cb)
     : jump_cb_(std::move(jump_cb)), remove_cb_(std::move(remove_cb))
 {
-    auto dummy = ftxui::Container::Vertical({});
-
-    component_ = ftxui::Renderer(dummy, [this] {
+    component_ = ftxui::Renderer([this](bool focused) {
         ftxui::Elements rows;
 
         auto header_row = ftxui::hbox({
@@ -36,18 +34,18 @@ QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_c
                 bool is_sel = (static_cast<int>(i) == selected_);
 
                 std::string cursor = is_playing ? "● " : (is_sel ? "> " : "  ");
-                auto cursor_color = is_playing ? ftxui::color(Theme::Success) : (is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary));
+                auto cursor_color = is_playing ? ftxui::color(Theme::Success) : (is_sel ? (focused ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextSecondary)) : ftxui::color(Theme::TextTertiary));
 
                 auto row = ftxui::hbox({
                     ftxui::text(cursor) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(ymcli::truncate(song.title, 34)) | ftxui::bold | ftxui::color(is_playing ? Theme::Success : (is_sel ? Theme::TextPrimary : Theme::TextSecondary)) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(is_playing ? Theme::Success : (is_sel ? Theme::Accent : Theme::TextSecondary)) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(is_playing ? Theme::Success : (is_sel ? (focused ? Theme::Accent : Theme::TextSecondary) : Theme::TextSecondary)) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(ymcli::truncate(song.album, 28)) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
                     ftxui::text(song.duration_text.empty() ? "--:--" : song.duration_text) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                 });
 
                 if (is_sel) {
-                    row = row | ftxui::bgcolor(Theme::Elevated);
+                    row = row | ftxui::bgcolor(focused ? Theme::Elevated : Theme::Surface);
                 }
 
                 rows.push_back(row);

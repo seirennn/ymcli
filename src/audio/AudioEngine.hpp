@@ -12,6 +12,7 @@ public:
     using TrackEndedCallback = std::function<void()>;
     using TitleCallback = std::function<void(const std::string& title)>;
     using StateCallback = std::function<void(bool is_paused)>;
+    using AudioLevelCallback = std::function<void(double level)>;
 
     AudioEngine();
     ~AudioEngine();
@@ -36,6 +37,9 @@ public:
     void toggleMute();
     bool isMuted() const;
 
+    // Audio level (0.0 - 1.0, derived from mpv audio-out-params)
+    double getAudioLevel() const;
+
     // State queries
     bool isPlaying() const;
     bool isPaused() const;
@@ -48,6 +52,7 @@ public:
     void onTrackEnded(TrackEndedCallback cb);
     void onTitleChanged(TitleCallback cb);
     void onStateChanged(StateCallback cb);
+    void onAudioLevel(AudioLevelCallback cb);
 
 private:
     struct Impl;

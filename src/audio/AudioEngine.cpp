@@ -20,6 +20,7 @@ struct AudioEngine::Impl {
     TrackEndedCallback track_ended_cb;
     TitleCallback title_cb;
     StateCallback state_cb;
+    AudioLevelCallback audio_level_cb;
     mutable std::mutex cb_mutex;
 
     Impl() {
@@ -242,6 +243,16 @@ void AudioEngine::onTitleChanged(TitleCallback cb) {
 void AudioEngine::onStateChanged(StateCallback cb) {
     std::lock_guard<std::mutex> lock(impl_->cb_mutex);
     impl_->state_cb = std::move(cb);
+}
+
+void AudioEngine::onAudioLevel(AudioLevelCallback cb) {
+    std::lock_guard<std::mutex> lock(impl_->cb_mutex);
+    impl_->audio_level_cb = std::move(cb);
+}
+
+double AudioEngine::getAudioLevel() const {
+    if (isPaused() || isMuted() || !isPlaying()) return 0.0;
+    return getVolume() / 100.0;
 }
 
 } // namespace ymcli

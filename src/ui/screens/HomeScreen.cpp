@@ -4,25 +4,27 @@
 
 namespace ymcli::ui::screens {
 
-HomeScreen::HomeScreen() {
-    component_ = ftxui::Renderer([this] {
+HomeScreen::HomeScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_cb)
+    : play_cb_(std::move(play_cb)), enqueue_cb_(std::move(enqueue_cb))
+{
+    component_ = ftxui::Renderer([this](bool focused) {
         ftxui::Elements recent_elements;
 
-        if (recent_plays_.empty()) {
+        if (recent_tracks_.empty()) {
             recent_elements.push_back(
                 ftxui::text("  No recent tracks. Press / to search and play.")
                 | ftxui::color(Theme::TextTertiary)
             );
         } else {
-            for (size_t i = 0; i < recent_plays_.size(); ++i) {
-                const auto& play = recent_plays_[i];
+            for (size_t i = 0; i < recent_tracks_.size(); ++i) {
+                const auto& track = recent_tracks_[i];
                 bool is_sel = (static_cast<int>(i) == selected_);
                 auto row = ftxui::hbox({
-                    ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-                    ftxui::text(play.title) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 40),
-                    ftxui::text(play.artist) | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::flex
+                    ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? (focused ? Theme::Accent : Theme::TextSecondary) : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(track.title) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 40),
+                    ftxui::text(track.artist) | ftxui::color(is_sel ? (focused ? Theme::Accent : Theme::TextSecondary) : Theme::TextTertiary) | ftxui::flex
                 });
-                if (is_sel) row = row | ftxui::bgcolor(Theme::Elevated);
+                if (is_sel) row = row | ftxui::bgcolor(focused ? Theme::Elevated : Theme::Surface);
                 recent_elements.push_back(row);
             }
         }
@@ -48,7 +50,7 @@ HomeScreen::HomeScreen() {
                 ftxui::hbox({
                     Theme::cmd_header("tracks", "--recent"),
                     ftxui::filler(),
-                    ftxui::text("[j/k] select  [Enter] play") | ftxui::color(Theme::TextTertiary)
+                    ftxui::text("[j/k] select  [Enter] play  [a] queue") | ftxui::color(Theme::TextTertiary)
                 }),
                 ftxui::separator() | ftxui::color(Theme::BorderLight),
                 ftxui::vbox(std::move(recent_elements)) | ftxui::yframe | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, 10)
@@ -73,13 +75,25 @@ HomeScreen::HomeScreen() {
     });
 
     component_ |= ftxui::CatchEvent([this](ftxui::Event event) {
-        if (recent_plays_.empty()) return false;
+        if (recent_tracks_.empty()) return false;
         if (event == ftxui::Event::Character('j') || event == ftxui::Event::ArrowDown) {
-            selected_ = std::min(static_cast<int>(recent_plays_.size() - 1), selected_ + 1);
+            selected_ = std::min(static_cast<int>(recent_tracks_.size() - 1), selected_ + 1);
             return true;
         }
         if (event == ftxui::Event::Character('k') || event == ftxui::Event::ArrowUp) {
             selected_ = std::max(0, selected_ - 1);
+            return true;
+        }
+        if (event == ftxui::Event::Return) {
+            if (play_cb_ && selected_ >= 0 && selected_ < static_cast<int>(recent_tracks_.size())) {
+                play_cb_(recent_tracks_, selected_);
+            }
+            return true;
+        }
+        if (event == ftxui::Event::Character('a')) {
+            if (enqueue_cb_ && selected_ >= 0 && selected_ < static_cast<int>(recent_tracks_.size())) {
+                enqueue_cb_(recent_tracks_[selected_]);
+            }
             return true;
         }
         return false;
@@ -87,6 +101,11 @@ HomeScreen::HomeScreen() {
 }
 
 ftxui::Component HomeScreen::GetComponent() { return component_; }
-void HomeScreen::SetRecentPlays(const std::vector<RecentPlay>& plays) { recent_plays_ = plays; selected_ = 0; }
+void HomeScreen::SetRecentTracks(const std::vector<Track>& tracks) {
+    recent_tracks_ = tracks;
+    if (selected_ >= static_cast<int>(recent_tracks_.size())) {
+        selected_ = std::max(0, static_cast<int>(recent_tracks_.size()) - 1);
+    }
+}
 
 } // namespace ymcli::ui::screens

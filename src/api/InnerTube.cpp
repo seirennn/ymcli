@@ -499,7 +499,18 @@ std::vector<Playlist> InnerTube::getUserPlaylists() {
                 if (p.playlist_id.empty()) continue;
 
                 if (item.contains("subtitle") && item["subtitle"].contains("runs") && !item["subtitle"]["runs"].empty()) {
-                    p.author = item["subtitle"]["runs"][0]["text"].get<std::string>();
+                    const auto& runs = item["subtitle"]["runs"];
+                    p.author = runs[0]["text"].get<std::string>();
+                    if (runs.size() >= 3 && runs[2].contains("text")) {
+                        std::string count_str = runs[2]["text"].get<std::string>();
+                        try {
+                            size_t space_pos = count_str.find(' ');
+                            std::string num_str = (space_pos != std::string::npos) ? count_str.substr(0, space_pos) : count_str;
+                            // remove commas if any e.g. "1,200"
+                            num_str.erase(std::remove(num_str.begin(), num_str.end(), ','), num_str.end());
+                            p.track_count = std::stoi(num_str);
+                        } catch (...) {}
+                    }
                 }
 
                 playlists.push_back(p);

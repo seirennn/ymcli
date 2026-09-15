@@ -18,6 +18,9 @@ public:
 private:
     const PlaybackState& state_;
     double anim_phase_ = 0.0;
+    double pan_phase_ = 0.0;
+    std::vector<double> bar_levels_;
+    std::vector<double> peak_levels_;
 
     ftxui::Element RenderVisualizer(int width, int height);
 };
