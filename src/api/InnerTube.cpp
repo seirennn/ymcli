@@ -2,7 +2,9 @@
 #include "../util/Format.hpp"
 #include "../util/Platform.hpp"
 
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
 #define CPPHTTPLIB_OPENSSL_SUPPORT
+#endif
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <openssl/sha.h>
@@ -38,7 +40,23 @@ bool InnerTube::setAuthCookies(const std::string& cookie_string) {
         return false;
     }
 
-    cookie_string_ = cookie_string;
+    // Sanitize cookie string to retain only valid printable ASCII characters
+    std::string clean_cookies;
+    clean_cookies.reserve(cookie_string.size());
+    for (unsigned char c : cookie_string) {
+        if (c >= 0x20 && c < 0x7F) {
+            clean_cookies.push_back(static_cast<char>(c));
+        }
+    }
+
+    if (clean_cookies.empty()) {
+        is_authenticated_ = false;
+        cookie_string_.clear();
+        sapisid_.clear();
+        return false;
+    }
+
+    cookie_string_ = std::move(clean_cookies);
 
     // Extract SAPISID or __Secure-3PAPISID from cookie string for auth header
     std::string target = "SAPISID=";
@@ -59,12 +77,16 @@ bool InnerTube::setAuthCookies(const std::string& cookie_string) {
 
     // Save auth string locally for persistence
     if (is_authenticated_) {
-        std::string auth_path = getConfigDir() + "/auth.json";
-        ensureDirectory(getConfigDir());
-        std::ofstream file(auth_path);
-        if (file.is_open()) {
-            json j = {{"cookie", cookie_string_}};
-            file << j.dump(4);
+        try {
+            std::string auth_path = getConfigDir() + "/auth.json";
+            ensureDirectory(getConfigDir());
+            std::ofstream file(auth_path);
+            if (file.is_open()) {
+                json j = {{"cookie", cookie_string_}};
+                file << j.dump(4, ' ', false, nlohmann::json::error_handler_t::replace);
+            }
+        } catch (...) {
+            // Guard against any unexpected serialization or filesystem errors
         }
     }
 
@@ -76,9 +98,14 @@ bool InnerTube::loadAuthFile(const std::string& path) {
     if (!file.is_open()) return false;
 
     try {
+        file.seekg(0, std::ios::end);
+        auto len = file.tellg();
+        if (len <= 0) return false;
+        file.seekg(0, std::ios::beg);
+
         json j;
         file >> j;
-        if (j.contains("cookie")) {
+        if (j.contains("cookie") && j["cookie"].is_string()) {
             return setAuthCookies(j["cookie"].get<std::string>());
         }
     } catch (...) {}
@@ -131,8 +158,15 @@ std::string InnerTube::postRequest(const std::string& endpoint, const json& body
         headers.emplace("Authorization", auth_val);
     }
 
+    std::string payload;
+    try {
+        payload = body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+    } catch (...) {
+        return "";
+    }
+
     std::lock_guard<std::mutex> lock(http_mutex_);
-    auto res = http_client_->Post(endpoint.c_str(), headers, body.dump(), "application/json");
+    auto res = http_client_->Post(endpoint.c_str(), headers, payload, "application/json");
 
     if (res && res->status == 200) {
         return res->body;
