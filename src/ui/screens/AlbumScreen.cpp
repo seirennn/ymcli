@@ -27,7 +27,7 @@ AlbumScreen::AlbumScreen(PlayTracksCallback play_cb,
             bool is_sel = (static_cast<int>(i) == selected_);
 
             auto row = ftxui::hbox({
-                ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                 ftxui::text(std::to_string(i + 1) + ". ") | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 4),
                 ftxui::text(ymcli::truncate(t.title, 40)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::flex,
                 ftxui::text(t.duration_text.empty() ? "--:--" : t.duration_text) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
@@ -44,16 +44,20 @@ AlbumScreen::AlbumScreen(PlayTracksCallback play_cb,
         if (!year_.empty()) meta += " • " + year_;
         meta += " • " + std::to_string(tracks_.size()) + " tracks";
 
-        return ftxui::vbox({
-            ftxui::vbox({
-                Theme::heading(title_.empty() ? "Album" : title_),
-                ftxui::hbox({
-                    Theme::subtext(meta),
-                    ftxui::filler(),
-                    ftxui::text("[Enter] Play  [P] Play All  [a] Add  [l] Save to List  [Esc] Back") | ftxui::color(Theme::TextTertiary)
-                })
+        auto top_header = ftxui::vbox({
+            ftxui::hbox({
+                Theme::cmd_header("album", "--tracks", title_.empty() ? "untitled" : title_),
+                ftxui::filler(),
+                ftxui::text("● " + meta) | ftxui::color(Theme::KeywordBlue)
             }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::hbox({
+                ftxui::text("[Enter] Play  [P] Play All  [a] Add  [l] Save to List  [Esc] Back") | ftxui::color(Theme::TextTertiary)
+            })
+        });
+
+        return ftxui::vbox({
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::vbox(std::move(track_elements)) | ftxui::yframe | ftxui::flex
         }) | ftxui::bgcolor(Theme::Background);
     });

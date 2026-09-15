@@ -22,7 +22,7 @@ private:
     int sidebar_index_ = 0;
     OnSelectCallback on_select_;
     std::vector<std::string> items_ = {
-        "1  Home", "2  Search", "3  Library", "4  Queue", "5  History", "6  Favorites", "7  Settings"
+        "1 home", "2 search", "3 library", "4 queue", "5 history", "6 favorites", "7 settings"
     };
     ftxui::Component menu_;
     ftxui::Component component_;

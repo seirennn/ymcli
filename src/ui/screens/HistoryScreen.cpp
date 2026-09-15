@@ -22,13 +22,13 @@ HistoryScreen::HistoryScreen(PlayTracksCallback play_cb,
 
         auto header_row = ftxui::hbox({
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex
+            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::flex
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
-        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
 
         if (history_.empty()) {
             rows.push_back(
@@ -41,9 +41,9 @@ HistoryScreen::HistoryScreen(PlayTracksCallback play_cb,
                 bool is_sel = (static_cast<int>(i) == selected_);
 
                 auto row = ftxui::hbox({
-                    ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(ymcli::truncate(song.title, 34)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(is_sel ? Theme::Accent : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(ymcli::truncate(song.album, 28)) | ftxui::color(Theme::TextTertiary) | ftxui::flex
                 });
 
@@ -55,14 +55,15 @@ HistoryScreen::HistoryScreen(PlayTracksCallback play_cb,
             }
         }
 
+        auto top_header = ftxui::hbox({
+            Theme::cmd_header("history", "--played", std::to_string(history_.size()) + " tracks"),
+            ftxui::filler(),
+            ftxui::text("[Enter] Play  [a] Queue  [l] Save to List  [f] Fav") | ftxui::color(Theme::TextTertiary)
+        });
+
         return ftxui::vbox({
-            ftxui::hbox({
-                ftxui::text("PLAY HISTORY") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(history_.size()) + " recent)") | ftxui::color(Theme::TextTertiary),
-                ftxui::filler(),
-                ftxui::text("[Enter] Play  [a] Add to Queue  [l] Save to List  [f] Favorite") | ftxui::color(Theme::TextTertiary)
-            }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
         }) | ftxui::bgcolor(Theme::Background);
     });

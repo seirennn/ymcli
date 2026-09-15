@@ -28,7 +28,7 @@ public:
 private:
     bool is_loading_ = false;
     int tab_index_ = 0;
-    std::vector<std::string> tab_names_ = {" Songs ", " Albums ", " Artists ", " Playlists "};
+    std::vector<std::string> tab_names_ = {"[songs]", "[albums]", "[artists]", "[playlists]"};
     ftxui::Component tab_toggle_;
 
     SearchResults results_;

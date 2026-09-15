@@ -51,22 +51,22 @@ SettingsScreen::SettingsScreen(AuthCallback auth_cb, AutoDetectCallback auto_cb)
     });
 
     component_ = ftxui::Renderer(container, [this, container] {
-        std::string auth_badge = is_authenticated_ ? "[connected]" : "[not connected]";
-        auto auth_color = is_authenticated_ ? ftxui::color(Theme::PlayingIndicator) : ftxui::color(Theme::TextTertiary);
+        std::string auth_badge = is_authenticated_ ? "● connected" : "● not connected";
+        auto auth_color = is_authenticated_ ? ftxui::color(Theme::Success) : ftxui::color(Theme::TextTertiary);
 
         ftxui::Elements auth_section_elements = {
             ftxui::hbox({
-                ftxui::text("ACCOUNT AUTHENTICATION") | ftxui::bold | ftxui::color(Theme::Accent),
+                Theme::cmd_header("auth", "--session"),
                 ftxui::filler(),
                 ftxui::text(auth_badge) | auth_color | ftxui::bold
             }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::text("1-click session import (Firefox, Arc, Chrome, Brave, Edge, Zen):") | ftxui::color(Theme::TextSecondary),
             auto_detect_button_->Render() | ftxui::color(Theme::Accent)
         };
 
         if (!status_message_.empty()) {
-            auto msg_color = status_is_success_ ? ftxui::color(Theme::PlayingIndicator) : ftxui::color(Theme::Accent);
+            auto msg_color = status_is_success_ ? ftxui::color(Theme::Success) : ftxui::color(Theme::Danger);
             auth_section_elements.push_back(
                 ftxui::text("  " + status_message_) | msg_color
             );
@@ -78,31 +78,31 @@ SettingsScreen::SettingsScreen(AuthCallback auth_cb, AutoDetectCallback auto_cb)
         auth_section_elements.push_back(auth_button_->Render() | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 28));
 
         return ftxui::vbox({
-            ftxui::text("SETTINGS") | ftxui::bold | ftxui::color(Theme::Accent),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            Theme::cmd_header("ymcli", "--config", "preferences & authentication"),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             
-            ftxui::vbox(std::move(auth_section_elements)) | ftxui::bgcolor(Theme::SecondaryBg) | ftxui::borderRounded | ftxui::color(Theme::Border),
+            ftxui::vbox(std::move(auth_section_elements)) | ftxui::bgcolor(Theme::SecondaryBg) | ftxui::borderRounded | ftxui::color(Theme::BorderLight),
 
             ftxui::text(""),
 
             ftxui::vbox({
-                ftxui::text("AUDIO OPTIONS") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::separator() | ftxui::color(Theme::Border),
+                Theme::cmd_header("audio", "--options"),
+                ftxui::separator() | ftxui::color(Theme::BorderLight),
                 volume_slider_->Render(),
                 ftxui::hbox({
                     ftxui::text("Stream Quality: ") | ftxui::color(Theme::TextSecondary),
                     quality_toggle_->Render()
                 })
-            }) | ftxui::bgcolor(Theme::SecondaryBg) | ftxui::borderRounded | ftxui::color(Theme::Border),
+            }) | ftxui::bgcolor(Theme::SecondaryBg) | ftxui::borderRounded | ftxui::color(Theme::BorderLight),
 
             ftxui::text(""),
 
             ftxui::vbox({
-                ftxui::text("ABOUT") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::separator() | ftxui::color(Theme::Border),
+                Theme::cmd_header("system", "--info"),
+                ftxui::separator() | ftxui::color(Theme::BorderLight),
                 ftxui::text("ymcli — minimal C++20 terminal audio client for YouTube Music") | ftxui::color(Theme::TextSecondary),
                 ftxui::text("Data: ~/.local/share/ymcli   Config: ~/.config/ymcli") | ftxui::color(Theme::TextTertiary)
-            }) | ftxui::bgcolor(Theme::SecondaryBg) | ftxui::borderRounded | ftxui::color(Theme::Border)
+            }) | ftxui::bgcolor(Theme::SecondaryBg) | ftxui::borderRounded | ftxui::color(Theme::BorderLight)
         }) | ftxui::bgcolor(Theme::Background);
     });
 }

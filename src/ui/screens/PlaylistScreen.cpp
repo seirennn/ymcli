@@ -24,14 +24,14 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
 
         auto header_row = ftxui::hbox({
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex,
-            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
+            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::flex,
+            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
-        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
 
         if (is_loading_) {
             rows.push_back(
@@ -51,7 +51,7 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
                 const auto& track = tracks_[i];
                 bool is_sel = (static_cast<int>(i) == selected_);
 
-                auto cursor_text = is_sel ? "› " : "  ";
+                auto cursor_text = is_sel ? "> " : "  ";
                 auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
 
                 std::string title_str = ymcli::truncate(track.title, 34);
@@ -60,9 +60,9 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
                 std::string time_str = track.duration_text.empty() ? "--:--" : track.duration_text;
 
                 auto row = ftxui::hbox({
-                    ftxui::text(cursor_text) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(cursor_text) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(artist_str) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(artist_str) | ftxui::color(is_sel ? Theme::Accent : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(album_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
                     ftxui::text(time_str) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                 });
@@ -75,21 +75,24 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
             }
         }
 
-        std::string author_str = author_.empty() ? "Playlist" : author_;
+        std::string author_str = author_.empty() ? "playlist" : author_;
         std::string count_str = std::to_string(tracks_.size()) + " tracks";
 
-        return ftxui::vbox({
-            ftxui::vbox({
-                Theme::heading(title_.empty() ? "Playlist" : title_),
-                ftxui::hbox({
-                    Theme::subtext(author_str),
-                    ftxui::text(" • ") | ftxui::color(Theme::TextTertiary),
-                    ftxui::text(count_str) | ftxui::color(Theme::TextTertiary),
-                    ftxui::filler(),
-                    ftxui::text("[Enter] Play  [P] Play All  [A] Add All  [a] Add  [l] Save to List  [Esc] Back") | ftxui::color(Theme::TextTertiary)
-                })
+        auto top_header = ftxui::vbox({
+            ftxui::hbox({
+                Theme::cmd_header("playlist", "--tracks", title_.empty() ? "untitled" : title_),
+                ftxui::filler(),
+                ftxui::text("● " + author_str) | ftxui::color(Theme::KeywordBlue),
+                ftxui::text("  " + count_str) | ftxui::color(Theme::TextTertiary)
             }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::hbox({
+                ftxui::text("[Enter] Play  [P] Play All  [A] Add All  [a] Add  [l] Save to List  [Esc] Back") | ftxui::color(Theme::TextTertiary)
+            })
+        });
+
+        return ftxui::vbox({
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
         }) | ftxui::bgcolor(Theme::Background);
     });

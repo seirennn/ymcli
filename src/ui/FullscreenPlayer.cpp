@@ -76,13 +76,13 @@ ftxui::Element FullscreenPlayer::RenderVisualizer(int num_bars, int max_height) 
                 glyph = blocks[block_idx];
             }
 
-            // Subdued vertical color gradient: deep dark slate at bottom to muted steel blue at peak
+            // Subdued vertical color gradient: warm slate base to warm terracotta peak
             if (r >= 7) {
-                cell_color = Theme::Accent; // Peak: RGB(120, 160, 200)
+                cell_color = Theme::Accent; // Peak: #d99178
             } else if (r >= 4) {
-                cell_color = Theme::DimAccent; // Mid: RGB(80, 110, 140)
+                cell_color = Theme::DimAccent; // Mid: #b56850
             } else {
-                cell_color = ftxui::Color::RGB(45, 60, 80); // Base: deep slate
+                cell_color = ftxui::Color::RGB(55, 45, 42); // Base: subdued warm charcoal
             }
 
             col_cells.push_back(ftxui::text(glyph) | ftxui::color(cell_color));
@@ -96,13 +96,15 @@ ftxui::Element FullscreenPlayer::RenderVisualizer(int num_bars, int max_height) 
 
 ftxui::Component FullscreenPlayer::GetComponent() {
     return ftxui::Renderer([this]() -> ftxui::Element {
-        // 1. Top Header Bar
+        // 1. Top Header Bar with macOS Window Dots
         auto top_bar = ftxui::hbox({
-            ftxui::text(" FULLSCREEN PLAYER ") | ftxui::bold | ftxui::color(Theme::Accent),
-            ftxui::text("│ ") | ftxui::color(Theme::Border),
-            ftxui::text("YouTube Music InnerTube") | ftxui::color(Theme::TextTertiary),
+            Theme::window_dots(),
+            ftxui::text("  ~/ymcli/visualizer") | ftxui::bold | ftxui::color(Theme::Accent),
+            ftxui::text(" ▊") | ftxui::color(Theme::PrimaryDark),
+            ftxui::text("  ") | ftxui::color(Theme::BorderLight),
+            ftxui::text(state_.has_track && !state_.is_paused ? "● streaming" : "● paused") | ftxui::color(state_.has_track && !state_.is_paused ? Theme::Success : Theme::Accent),
             ftxui::filler(),
-            ftxui::text("[Shift+F / Esc] Exit Fullscreen ") | ftxui::color(Theme::TextTertiary)
+            ftxui::text("[Shift+F / Esc] Exit  ") | ftxui::color(Theme::TextTertiary)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         // 2. Center Visualizer Area
@@ -114,19 +116,26 @@ ftxui::Component FullscreenPlayer::GetComponent() {
         std::string artist_str = state_.has_track ? (state_.artist.empty() ? "Unknown Artist" : state_.artist) : "Search music with /";
         std::string album_str = state_.has_track ? (state_.album.empty() ? "YouTube Music" : state_.album) : "";
 
-        std::string status_badge = state_.has_track ? (state_.is_paused ? "[ PAUSED ]" : "[ PLAYING ]") : "[ IDLE ]";
-        auto status_color = state_.has_track ? (state_.is_paused ? ftxui::color(Theme::TextSecondary) : ftxui::color(Theme::PlayingIndicator)) : ftxui::color(Theme::TextTertiary);
+        std::string status_badge = state_.has_track ? (state_.is_paused ? "❚❚ paused" : "● playing") : "● idle";
+        auto status_color = state_.has_track ? (state_.is_paused ? ftxui::color(Theme::Accent) : ftxui::color(Theme::Success)) : ftxui::color(Theme::TextTertiary);
 
-        ftxui::Elements artist_line;
-        artist_line.push_back(ftxui::text(artist_str) | ftxui::color(Theme::Accent));
+        ftxui::Elements cmd_line;
+        cmd_line.push_back(ftxui::text("$ ") | ftxui::bold | ftxui::color(Theme::CmdPrefix));
+        cmd_line.push_back(ftxui::text("now-playing: ") | ftxui::bold | ftxui::color(Theme::KeywordBlue));
+        cmd_line.push_back(ftxui::text("\"" + title_str + "\"") | ftxui::bold | ftxui::color(Theme::TextPrimary));
+
+        ftxui::Elements meta_line;
+        meta_line.push_back(ftxui::text("artist: ") | ftxui::color(Theme::TextTertiary));
+        meta_line.push_back(ftxui::text(artist_str) | ftxui::color(Theme::Accent));
         if (!album_str.empty()) {
-            artist_line.push_back(ftxui::text("  •  " + album_str) | ftxui::color(Theme::TextSecondary));
+            meta_line.push_back(ftxui::text("   album: ") | ftxui::color(Theme::TextTertiary));
+            meta_line.push_back(ftxui::text(album_str) | ftxui::color(Theme::TextSecondary));
         }
 
         auto track_info = ftxui::vbox({
-            ftxui::text(title_str) | ftxui::bold | ftxui::color(Theme::TextPrimary) | ftxui::center,
+            ftxui::hbox(std::move(cmd_line)) | ftxui::center,
             ftxui::text("") | ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1),
-            ftxui::hbox(std::move(artist_line)) | ftxui::center,
+            ftxui::hbox(std::move(meta_line)) | ftxui::center,
             ftxui::text("") | ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1),
             ftxui::text(status_badge) | status_color | ftxui::bold | ftxui::center
         });
@@ -145,23 +154,23 @@ ftxui::Component FullscreenPlayer::GetComponent() {
             progress = static_cast<float>(state_.position / state_.duration);
             progress = std::clamp(progress, 0.0f, 1.0f);
         }
-        std::string time_str = format_time(state_.position) + " / " + format_time(state_.duration);
 
         auto progress_row = ftxui::hbox({
-            ftxui::text(" " + format_time(state_.position) + " ") | ftxui::color(Theme::TextSecondary),
-            ftxui::gauge(progress) | ftxui::color(Theme::Accent) | ftxui::flex,
-            ftxui::text(" " + format_time(state_.duration) + " ") | ftxui::color(Theme::TextSecondary)
+            ftxui::text(" " + format_time(state_.position) + " ") | ftxui::bold | ftxui::color(Theme::KeywordBlue),
+            ftxui::gauge(progress) | ftxui::color(Theme::Accent) | ftxui::bgcolor(Theme::CodeBg) | ftxui::flex,
+            ftxui::text(" " + format_time(state_.duration) + " ") | ftxui::bold | ftxui::color(Theme::KeywordBlue)
         });
 
         std::string flags = "";
-        if (state_.is_shuffled) flags += "[SHUF] ";
-        if (state_.repeat == RepeatMode::All) flags += "[REPEAT] ";
-        else if (state_.repeat == RepeatMode::One) flags += "[REPEAT:1] ";
+        if (state_.is_shuffled) flags += "[shuf] ";
+        if (state_.repeat == RepeatMode::All) flags += "[repeat] ";
+        else if (state_.repeat == RepeatMode::One) flags += "[repeat:1] ";
 
         std::string vol_str = "vol " + std::to_string(static_cast<int>(state_.volume)) + "%";
 
         auto status_row = ftxui::hbox({
             ftxui::text(" " + flags) | ftxui::color(Theme::Accent),
+            ftxui::text("[mpv::stream] ") | ftxui::color(Theme::KeywordBlue),
             ftxui::filler(),
             ftxui::text(vol_str + " ") | ftxui::color(Theme::TextSecondary)
         });
@@ -172,16 +181,16 @@ ftxui::Component FullscreenPlayer::GetComponent() {
         });
 
         auto bottom_section = ftxui::vbox({
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             progress_row,
             status_row,
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             controls_hint
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         return ftxui::vbox({
             top_bar,
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             center_body,
             bottom_section
         }) | ftxui::bgcolor(Theme::Background);

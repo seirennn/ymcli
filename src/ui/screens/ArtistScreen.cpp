@@ -28,7 +28,7 @@ ArtistScreen::ArtistScreen(PlayTracksCallback play_cb,
             bool is_sel = (in_songs_ && static_cast<int>(i) == selected_song_);
 
             auto row = ftxui::hbox({
-                ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                 ftxui::text(std::to_string(i + 1) + ". ") | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 4),
                 ftxui::text(ymcli::truncate(s.title, 36)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::flex,
                 ftxui::text(s.duration_text.empty() ? "--:--" : s.duration_text) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
@@ -46,7 +46,7 @@ ArtistScreen::ArtistScreen(PlayTracksCallback play_cb,
             bool is_sel = (!in_songs_ && static_cast<int>(i) == selected_album_);
 
             auto row = ftxui::hbox({
-                ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                 ftxui::text(ymcli::truncate(a.title, 32)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::flex,
                 ftxui::text(a.year) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
             });
@@ -57,28 +57,32 @@ ArtistScreen::ArtistScreen(PlayTracksCallback play_cb,
             album_elements.push_back(row);
         }
 
-        std::string meta = subs_.empty() ? "Artist" : subs_;
+        std::string meta = subs_.empty() ? "artist" : subs_;
+
+        auto top_header = ftxui::vbox({
+            ftxui::hbox({
+                Theme::cmd_header("artist", "--discography", name_.empty() ? "artist" : name_),
+                ftxui::filler(),
+                ftxui::text("● " + meta) | ftxui::color(Theme::KeywordBlue)
+            }),
+            ftxui::hbox({
+                ftxui::text("[Tab] Toggle Songs/Albums  [Enter] Select  [a] Queue  [l] Save to List  [Esc] Back") | ftxui::color(Theme::TextTertiary)
+            })
+        });
 
         return ftxui::vbox({
-            ftxui::vbox({
-                Theme::heading(name_.empty() ? "Artist" : name_),
-                ftxui::hbox({
-                    Theme::subtext(meta),
-                    ftxui::filler(),
-                    ftxui::text("[Tab] Toggle Songs/Albums  [Enter] Select  [Esc] Back") | ftxui::color(Theme::TextTertiary)
-                })
-            }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::hbox({
                 ftxui::vbox({
-                    ftxui::text("TOP TRACKS") | ftxui::bold | ftxui::color(in_songs_ ? Theme::Accent : Theme::TextSecondary),
-                    ftxui::separator() | ftxui::color(Theme::Border),
+                    Theme::cmd_header("tracks", "--top"),
+                    ftxui::separator() | ftxui::color(Theme::BorderLight),
                     ftxui::vbox(std::move(song_elements)) | ftxui::yframe | ftxui::flex
                 }) | ftxui::flex,
-                ftxui::separator() | ftxui::color(Theme::Border),
+                ftxui::separator() | ftxui::color(Theme::BorderLight),
                 ftxui::vbox({
-                    ftxui::text("DISCOGRAPHY / ALBUMS") | ftxui::bold | ftxui::color(!in_songs_ ? Theme::Accent : Theme::TextSecondary),
-                    ftxui::separator() | ftxui::color(Theme::Border),
+                    Theme::cmd_header("albums", "--discography"),
+                    ftxui::separator() | ftxui::color(Theme::BorderLight),
                     ftxui::vbox(std::move(album_elements)) | ftxui::yframe | ftxui::flex
                 }) | ftxui::flex
             }) | ftxui::flex

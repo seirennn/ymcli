@@ -26,13 +26,13 @@ LibraryScreen::LibraryScreen(OpenPlaylistCallback open_cb,
 
         auto header_row = ftxui::hbox({
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-            ftxui::text("PLAYLIST NAME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 40),
-            ftxui::text("TYPE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("TRACKS") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex
+            ftxui::text("PLAYLIST NAME") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 40),
+            ftxui::text("TYPE") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("TRACKS") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::flex
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
-        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
 
         if (playlists_.empty()) {
             rows.push_back(
@@ -45,17 +45,17 @@ LibraryScreen::LibraryScreen(OpenPlaylistCallback open_cb,
                 bool is_sel = (static_cast<int>(i) == selected_);
                 bool is_local = (pl.playlist_id.rfind("local:", 0) == 0);
 
-                auto cursor_text = is_sel ? "› " : "  ";
+                auto cursor_text = is_sel ? "> " : "  ";
                 auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
 
                 std::string title_str = ymcli::truncate(pl.title, 38);
-                std::string type_str = is_local ? "Local Playlist" : (pl.author.empty() ? "YouTube Music" : ymcli::truncate(pl.author, 22));
+                std::string type_str = is_local ? "[local]" : (pl.author.empty() ? "[cloud]" : ymcli::truncate(pl.author, 22));
                 std::string count_str = std::to_string(pl.track_count) + " tracks";
 
                 auto row = ftxui::hbox({
-                    ftxui::text(cursor_text) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(cursor_text) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 40),
-                    ftxui::text(type_str) | ftxui::color(is_local ? Theme::DimAccent : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(type_str) | ftxui::color(is_local ? Theme::Accent : Theme::KeywordBlue) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(count_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex
                 });
 
@@ -70,25 +70,25 @@ LibraryScreen::LibraryScreen(OpenPlaylistCallback open_cb,
         ftxui::Elements top_elements;
         top_elements.push_back(
             ftxui::hbox({
-                ftxui::text("PLAYLISTS & LIBRARY") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(playlists_.size()) + " total)") | ftxui::color(Theme::TextTertiary),
+                Theme::cmd_header("library", "--playlists", std::to_string(playlists_.size()) + " total"),
                 ftxui::filler(),
                 ftxui::text("[Enter] Open  [n] New Playlist  [d] Delete") | ftxui::color(Theme::TextTertiary)
             })
         );
 
         if (is_creating_) {
-            top_elements.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+            top_elements.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
             top_elements.push_back(
                 ftxui::hbox({
-                    ftxui::text("New Playlist: ") | ftxui::color(Theme::Accent) | ftxui::bold,
+                    ftxui::text(" $ ") | ftxui::bold | ftxui::color(Theme::CmdPrefix),
+                    ftxui::text("create-playlist: ") | ftxui::bold | ftxui::color(Theme::KeywordBlue),
                     input_comp_->Render() | ftxui::flex,
-                    ftxui::text(" [Enter: Confirm, Esc: Cancel]") | ftxui::color(Theme::TextTertiary)
+                    ftxui::text(" [Enter: Confirm, Esc: Cancel] ") | ftxui::color(Theme::TextTertiary)
                 }) | ftxui::bgcolor(Theme::Elevated)
             );
         }
 
-        top_elements.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        top_elements.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
         top_elements.push_back(ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex);
 
         return ftxui::vbox(std::move(top_elements)) | ftxui::bgcolor(Theme::Background);

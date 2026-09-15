@@ -17,9 +17,13 @@ SearchScreen::SearchScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_c
     component_ = ftxui::Renderer(container, [this] {
         if (is_loading_) {
             return ftxui::vbox({
-                tab_toggle_->Render(),
-                ftxui::separator() | ftxui::color(Theme::Border),
-                ftxui::text("Searching YouTube Music...") | ftxui::center | ftxui::color(Theme::Accent) | ftxui::flex
+                ftxui::hbox({
+                    Theme::cmd_header("search", "--pending"),
+                    ftxui::filler(),
+                    tab_toggle_->Render()
+                }),
+                ftxui::separator() | ftxui::color(Theme::BorderLight),
+                ftxui::text("Executing query on YouTube Music...") | ftxui::center | ftxui::color(Theme::Accent) | ftxui::flex
             }) | ftxui::bgcolor(Theme::Background);
         }
 
@@ -27,14 +31,14 @@ SearchScreen::SearchScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_c
 
         auto header_row = ftxui::hbox({
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex,
-            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
+            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::flex,
+            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
-        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
 
         if (tab_index_ == 0) {
             const auto& songs = results_.songs;
@@ -48,7 +52,7 @@ SearchScreen::SearchScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_c
                     const auto& song = songs[i];
                     bool is_sel = (static_cast<int>(i) == selected_item_);
 
-                    auto cursor_text = is_sel ? "› " : "  ";
+                    auto cursor_text = is_sel ? "> " : "  ";
                     auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
 
                     std::string title_str = ymcli::truncate(song.title, 34);
@@ -57,9 +61,9 @@ SearchScreen::SearchScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_c
                     std::string time_str = song.duration_text.empty() ? "--:--" : song.duration_text;
 
                     auto row = ftxui::hbox({
-                        ftxui::text(cursor_text) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                        ftxui::text(cursor_text) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                         ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                        ftxui::text(artist_str) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                        ftxui::text(artist_str) | ftxui::color(is_sel ? Theme::Accent : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                         ftxui::text(album_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
                         ftxui::text(time_str) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                     });
@@ -73,9 +77,17 @@ SearchScreen::SearchScreen(PlayTracksCallback play_cb, EnqueueCallback enqueue_c
             }
         }
 
-        return ftxui::vbox({
+        auto top_header = ftxui::hbox({
+            Theme::cmd_header("search", "--results", std::to_string(results_.songs.size()) + " matches"),
+            ftxui::filler(),
             tab_toggle_->Render(),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::text("  "),
+            ftxui::text("[Enter] Play  [a] Queue  [l] List  [f] Fav") | ftxui::color(Theme::TextTertiary)
+        });
+
+        return ftxui::vbox({
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
         }) | ftxui::bgcolor(Theme::Background);
     });

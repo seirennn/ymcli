@@ -15,14 +15,14 @@ QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_c
 
         auto header_row = ftxui::hbox({
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex,
-            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
+            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::flex,
+            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
-        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
 
         if (tracks_.empty()) {
             rows.push_back(
@@ -35,13 +35,13 @@ QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_c
                 bool is_playing = (i == current_index_);
                 bool is_sel = (static_cast<int>(i) == selected_);
 
-                std::string cursor = is_playing ? "► " : (is_sel ? "› " : "  ");
-                auto cursor_color = is_playing ? ftxui::color(Theme::PlayingIndicator) : (is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary));
+                std::string cursor = is_playing ? "● " : (is_sel ? "> " : "  ");
+                auto cursor_color = is_playing ? ftxui::color(Theme::Success) : (is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary));
 
                 auto row = ftxui::hbox({
-                    ftxui::text(cursor) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-                    ftxui::text(ymcli::truncate(song.title, 34)) | ftxui::bold | ftxui::color(is_playing ? Theme::PlayingIndicator : (is_sel ? Theme::TextPrimary : Theme::TextSecondary)) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(cursor) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(ymcli::truncate(song.title, 34)) | ftxui::bold | ftxui::color(is_playing ? Theme::Success : (is_sel ? Theme::TextPrimary : Theme::TextSecondary)) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+                    ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(is_playing ? Theme::Success : (is_sel ? Theme::Accent : Theme::TextSecondary)) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(ymcli::truncate(song.album, 28)) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
                     ftxui::text(song.duration_text.empty() ? "--:--" : song.duration_text) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                 });
@@ -54,14 +54,15 @@ QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_c
             }
         }
 
+        auto top_header = ftxui::hbox({
+            Theme::cmd_header("queue", "--active", std::to_string(tracks_.size()) + " tracks"),
+            ftxui::filler(),
+            ftxui::text("[Enter] Jump  [d] Remove") | ftxui::color(Theme::TextTertiary)
+        });
+
         return ftxui::vbox({
-            ftxui::hbox({
-                ftxui::text("PLAY QUEUE") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(tracks_.size()) + " tracks)") | ftxui::color(Theme::TextTertiary),
-                ftxui::filler(),
-                ftxui::text("[Enter] jump  [d] remove") | ftxui::color(Theme::TextTertiary)
-            }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
         }) | ftxui::bgcolor(Theme::Background);
     });

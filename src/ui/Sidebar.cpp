@@ -15,19 +15,22 @@ Sidebar::Sidebar(OnSelectCallback on_select)
         if (state.active) {
             if (is_focused) {
                 return ftxui::hbox({
-                    ftxui::text("› ") | ftxui::bold | ftxui::color(Theme::Accent),
+                    ftxui::text("> ") | ftxui::bold | ftxui::color(Theme::Accent),
+                    ftxui::text("$ ") | ftxui::bold | ftxui::color(Theme::CmdPrefix),
                     ftxui::text(state.label) | ftxui::color(Theme::TextPrimary) | ftxui::bold
                 }) | ftxui::bgcolor(Theme::Elevated);
             } else {
                 return ftxui::hbox({
-                    ftxui::text("› ") | ftxui::color(Theme::TextTertiary),
-                    ftxui::text(state.label) | ftxui::color(Theme::TextSecondary)
+                    ftxui::text("  "),
+                    ftxui::text("$ ") | ftxui::color(Theme::Accent),
+                    ftxui::text(state.label) | ftxui::color(Theme::TextPrimary)
                 }) | ftxui::bgcolor(Theme::Surface);
             }
         }
         return ftxui::hbox({
-            ftxui::text("  ") | ftxui::color(Theme::TextTertiary),
-            ftxui::text(state.label) | ftxui::color(Theme::TextTertiary)
+            ftxui::text("  "),
+            ftxui::text("$ ") | ftxui::color(Theme::TextTertiary),
+            ftxui::text(state.label) | ftxui::color(Theme::TextSecondary)
         });
     };
 
@@ -35,22 +38,39 @@ Sidebar::Sidebar(OnSelectCallback on_select)
 
     component_ = ftxui::Renderer(menu_, [this] {
         auto title = ftxui::vbox({
-            ftxui::text(""),
-            ftxui::text("ymcli") | ftxui::bold | ftxui::color(Theme::Accent) | ftxui::center,
-            ftxui::text("v0.1.0") | ftxui::color(Theme::TextTertiary) | ftxui::center,
+            ftxui::hbox({
+                Theme::window_dots(),
+                ftxui::filler(),
+                ftxui::text("● ready") | ftxui::color(Theme::Success)
+            }),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
+            ftxui::hbox({
+                ftxui::text("~/ymcli") | ftxui::bold | ftxui::color(Theme::Accent),
+                ftxui::text(" ▊") | ftxui::color(Theme::PrimaryDark),
+                ftxui::filler(),
+                ftxui::text("v0.1.0") | ftxui::color(Theme::TextTertiary)
+            }),
             ftxui::text("")
         });
 
         auto footer = ftxui::vbox({
-            ftxui::separator() | ftxui::color(Theme::Border),
-            ftxui::text("Shift+←/→ pane") | ftxui::color(Theme::TextSecondary) | ftxui::center,
-            ftxui::text("? help   q quit") | ftxui::color(Theme::TextTertiary) | ftxui::center,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
+            ftxui::hbox({
+                ftxui::text("pane: ") | ftxui::color(Theme::TextTertiary),
+                ftxui::text("Shift+←/→") | ftxui::color(Theme::Accent)
+            }) | ftxui::center,
+            ftxui::hbox({
+                ftxui::text("? ") | ftxui::color(Theme::KeywordBlue),
+                ftxui::text("help  ") | ftxui::color(Theme::TextTertiary),
+                ftxui::text("q ") | ftxui::color(Theme::Danger),
+                ftxui::text("quit") | ftxui::color(Theme::TextTertiary)
+            }) | ftxui::center,
             ftxui::text("")
         });
 
         return ftxui::vbox({
             title,
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             menu_->Render() | ftxui::flex,
             footer
         }) | ftxui::bgcolor(Theme::SecondaryBg);

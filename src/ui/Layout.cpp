@@ -17,7 +17,7 @@ Layout::Layout(Sidebar& sidebar, SearchBar& search_bar, ftxui::Component content
         return ftxui::vbox({
             search_bar.GetComponent()->Render(),
             content_area->Render() | ftxui::flex,
-            ftxui::separator() | ftxui::color(Theme::Border),
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             now_playing.GetComponent()->Render()
         }) | ftxui::bgcolor(Theme::Background);
     });
@@ -28,7 +28,7 @@ Layout::Layout(Sidebar& sidebar, SearchBar& search_bar, ftxui::Component content
     split_opt.direction = ftxui::Direction::Left;
     split_opt.main_size = &sidebar_width_;
     split_opt.separator_func = [] {
-        return ftxui::separator() | ftxui::color(Theme::Border);
+        return ftxui::separator() | ftxui::color(Theme::BorderLight);
     };
     auto split = ftxui::ResizableSplit(std::move(split_opt));
     

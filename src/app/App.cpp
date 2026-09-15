@@ -150,8 +150,8 @@ static ftxui::Element renderShortcutsModal() {
     };
 
     auto playback_col = ftxui::vbox({
-        ftxui::text("PLAYBACK CONTROLS") | ftxui::bold | ftxui::color(ui::Theme::Accent),
-        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        ui::Theme::cmd_header("playback", "--controls"),
+        ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
         entry("Space", "Play / Pause"),
         entry("n", "Next track (skip)"),
         entry("p", "Prev track / Restart"),
@@ -163,8 +163,8 @@ static ftxui::Element renderShortcutsModal() {
     });
 
     auto nav_col = ftxui::vbox({
-        ftxui::text("NAVIGATION") | ftxui::bold | ftxui::color(ui::Theme::Accent),
-        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        ui::Theme::cmd_header("nav", "--global"),
+        ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
         entry("1 - 7", "Switch view tabs"),
         entry("/", "Search YouTube Music"),
         entry("Shift+←/→", "Focus sidebar ↔ content"),
@@ -177,8 +177,8 @@ static ftxui::Element renderShortcutsModal() {
     });
 
     auto action_col = ftxui::vbox({
-        ftxui::text("ACTIONS") | ftxui::bold | ftxui::color(ui::Theme::Accent),
-        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        ui::Theme::cmd_header("action", "--commands"),
+        ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
         entry("Enter", "Play & queue remaining"),
         entry("a", "Add track to play queue"),
         entry("l / +", "Add track to playlist"),
@@ -188,18 +188,25 @@ static ftxui::Element renderShortcutsModal() {
         entry("d", "Remove track / Delete list")
     });
 
+    auto header = ftxui::hbox({
+        ui::Theme::window_dots(),
+        ftxui::text("  ~/ymcli/shortcuts") | ftxui::bold | ftxui::color(ui::Theme::Accent),
+        ftxui::filler(),
+        ftxui::text("[Esc / ?] Close  ") | ftxui::color(ui::Theme::TextTertiary)
+    });
+
     return ftxui::vbox({
-        ftxui::text("Y M C L I   S H O R T C U T S") | ftxui::bold | ftxui::color(ui::Theme::Accent) | ftxui::center,
-        ftxui::separator() | ftxui::color(ui::Theme::Border),
+        header,
+        ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
         ftxui::hbox({
             playback_col | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 34),
-            ftxui::separator() | ftxui::color(ui::Theme::Border),
+            ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
             nav_col | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-            ftxui::separator() | ftxui::color(ui::Theme::Border),
+            ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
             action_col | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 34)
         }),
-        ftxui::separator() | ftxui::color(ui::Theme::Border),
-        ftxui::text("Press ? or Esc to return to player") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
+        ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
+        ftxui::text("keyboard-first terminal audio client • press ? or Esc to return") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
     }) | ftxui::bgcolor(ui::Theme::Surface) | ftxui::borderRounded | ftxui::color(ui::Theme::FocusBorder);
 }
 
@@ -380,7 +387,7 @@ void App::run() {
             bool is_sel_new = (modal_playlist_sel_ == 0);
             items.push_back(
                 ftxui::hbox({
-                    ftxui::text(is_sel_new ? "› " : "  ") | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextTertiary),
+                    ftxui::text(is_sel_new ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextTertiary),
                     ftxui::text("[ + Create New Playlist ]") | ftxui::bold | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextPrimary)
                 }) | (is_sel_new ? ftxui::bgcolor(ui::Theme::Elevated) : ftxui::nothing)
             );
@@ -390,8 +397,8 @@ void App::run() {
                 const auto& pl = modal_local_playlists_[i];
                 items.push_back(
                     ftxui::hbox({
-                        ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? ui::Theme::Accent : ui::Theme::TextTertiary),
-                        ftxui::text(pl.title) | ftxui::color(is_sel ? ui::Theme::TextPrimary : ui::Theme::TextSecondary) | ftxui::flex,
+                        ftxui::text(is_sel ? "> " : "  ") | ftxui::bold | ftxui::color(is_sel ? ui::Theme::Accent : ui::Theme::TextTertiary),
+                        ftxui::text(pl.title) | ftxui::bold | ftxui::color(is_sel ? ui::Theme::TextPrimary : ui::Theme::TextSecondary) | ftxui::flex,
                         ftxui::text(std::to_string(pl.track_count) + " tracks") | ftxui::color(ui::Theme::TextTertiary)
                     }) | (is_sel ? ftxui::bgcolor(ui::Theme::Elevated) : ftxui::nothing)
                 );
@@ -402,24 +409,29 @@ void App::run() {
                 body = ftxui::vbox({
                     ftxui::text("Playlist Name:") | ftxui::color(ui::Theme::TextSecondary),
                     modal_input->Render() | ftxui::bgcolor(ui::Theme::Elevated),
-                    ftxui::separator() | ftxui::color(ui::Theme::Border),
+                    ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
                     ftxui::text("[Enter] Confirm   [Esc] Back") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
                 });
             } else {
                 body = ftxui::vbox({
                     ftxui::vbox(std::move(items)) | ftxui::yframe | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, 10),
-                    ftxui::separator() | ftxui::color(ui::Theme::Border),
+                    ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
                     ftxui::text("[Enter] Select   [Esc] Cancel") | ftxui::color(ui::Theme::TextTertiary) | ftxui::center
                 });
             }
 
             auto modal_box = ftxui::vbox({
-                ftxui::text("ADD TO PLAYLIST") | ftxui::bold | ftxui::color(ui::Theme::Accent) | ftxui::center,
+                ftxui::hbox({
+                    ui::Theme::window_dots(),
+                    ftxui::text("  ~/ymcli/playlist-add") | ftxui::bold | ftxui::color(ui::Theme::Accent),
+                    ftxui::filler(),
+                    ftxui::text("[Esc] Close  ") | ftxui::color(ui::Theme::TextTertiary)
+                }),
                 ftxui::text(modal_track_.title.empty() ? "" : (modal_track_.title + " — " + modal_track_.artist)) | ftxui::color(ui::Theme::TextTertiary) | ftxui::center,
-                ftxui::separator() | ftxui::color(ui::Theme::Border),
+                ftxui::separator() | ftxui::color(ui::Theme::BorderLight),
                 body
             }) | ftxui::bgcolor(ui::Theme::Surface) | ftxui::borderRounded | ftxui::color(ui::Theme::FocusBorder)
-               | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 50);
+               | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 52);
 
             return ftxui::dbox({
                 main_element,

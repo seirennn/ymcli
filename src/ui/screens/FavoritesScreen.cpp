@@ -22,14 +22,14 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
 
         auto header_row = ftxui::hbox({
             ftxui::text("  ") | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
-            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
-            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::flex,
-            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
+            ftxui::text("TITLE") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
+            ftxui::text("ARTIST") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+            ftxui::text("ALBUM") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::flex,
+            ftxui::text("TIME") | ftxui::bold | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
         }) | ftxui::bgcolor(Theme::SecondaryBg);
 
         rows.push_back(header_row);
-        rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
+        rows.push_back(ftxui::separator() | ftxui::color(Theme::BorderLight));
 
         if (favorites_.empty()) {
             rows.push_back(
@@ -41,7 +41,7 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
                 const auto& song = favorites_[i];
                 bool is_sel = (static_cast<int>(i) == selected_);
 
-                auto cursor_text = is_sel ? "› " : "  ";
+                auto cursor_text = is_sel ? "> " : "  ";
                 auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
 
                 std::string title_str = ymcli::truncate(song.title, 34);
@@ -50,9 +50,9 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
                 std::string time_str = song.duration_text.empty() ? "--:--" : song.duration_text;
 
                 auto row = ftxui::hbox({
-                    ftxui::text(cursor_text) | cursor_color | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(cursor_text) | cursor_color | ftxui::bold | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(title_str) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
-                    ftxui::text(artist_str) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
+                    ftxui::text(artist_str) | ftxui::color(is_sel ? Theme::Accent : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(album_str) | ftxui::color(Theme::TextTertiary) | ftxui::flex,
                     ftxui::text(time_str) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
                 });
@@ -65,14 +65,15 @@ FavoritesScreen::FavoritesScreen(PlayTracksCallback play_cb,
             }
         }
 
+        auto top_header = ftxui::hbox({
+            Theme::cmd_header("favorites", "--saved", std::to_string(favorites_.size()) + " tracks"),
+            ftxui::filler(),
+            ftxui::text("[Enter] Play  [a] Queue  [l] Save to List  [f] Unfav") | ftxui::color(Theme::TextTertiary)
+        });
+
         return ftxui::vbox({
-            ftxui::hbox({
-                ftxui::text("SAVED SONGS & FAVORITES") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(favorites_.size()) + " tracks)") | ftxui::color(Theme::TextTertiary),
-                ftxui::filler(),
-                ftxui::text("[Enter] Play  [a] Add to Queue  [l] Save to List  [f] Unfavorite") | ftxui::color(Theme::TextTertiary)
-            }),
-            ftxui::separator() | ftxui::color(Theme::Border),
+            top_header,
+            ftxui::separator() | ftxui::color(Theme::BorderLight),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex
         }) | ftxui::bgcolor(Theme::Background);
     });
