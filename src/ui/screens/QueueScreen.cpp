@@ -35,7 +35,7 @@ QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_c
                 bool is_playing = (i == current_index_);
                 bool is_sel = (static_cast<int>(i) == selected_);
 
-                std::string cursor = is_playing ? "▶ " : (is_sel ? "▸ " : "  ");
+                std::string cursor = is_playing ? "► " : (is_sel ? "› " : "  ");
                 auto cursor_color = is_playing ? ftxui::color(Theme::PlayingIndicator) : (is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary));
 
                 auto row = ftxui::hbox({
@@ -57,7 +57,9 @@ QueueScreen::QueueScreen(JumpTrackCallback jump_cb, RemoveTrackCallback remove_c
         return ftxui::vbox({
             ftxui::hbox({
                 ftxui::text("PLAY QUEUE") | ftxui::bold | ftxui::color(Theme::Accent),
-                ftxui::text(" (" + std::to_string(tracks_.size()) + " tracks)") | ftxui::color(Theme::TextTertiary)
+                ftxui::text(" (" + std::to_string(tracks_.size()) + " tracks)") | ftxui::color(Theme::TextTertiary),
+                ftxui::filler(),
+                ftxui::text("[Enter] jump  [d] remove") | ftxui::color(Theme::TextTertiary)
             }),
             ftxui::separator() | ftxui::color(Theme::Border),
             ftxui::vbox(std::move(rows)) | ftxui::yframe | ftxui::flex

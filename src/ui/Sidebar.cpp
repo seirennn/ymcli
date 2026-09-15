@@ -10,14 +10,10 @@ Sidebar::Sidebar(int* active_screen)
     : selected_ptr_(active_screen ? active_screen : &dummy_selected_)
 {
     ftxui::MenuOption option;
-    option.on_change = [this] {
-        // Synchronize active_screen when user selects item in menu
-    };
-
     option.entries_option.transform = [](const ftxui::EntryState& state) {
         if (state.active) {
             return ftxui::hbox({
-                ftxui::text("▸ ") | ftxui::color(Theme::Accent),
+                ftxui::text("› ") | ftxui::bold | ftxui::color(Theme::Accent),
                 ftxui::text(state.label) | ftxui::color(Theme::TextPrimary) | ftxui::bold
             }) | ftxui::bgcolor(Theme::Elevated);
         }
@@ -30,13 +26,25 @@ Sidebar::Sidebar(int* active_screen)
     menu_ = ftxui::Menu(&items_, selected_ptr_, option);
 
     component_ = ftxui::Renderer(menu_, [this] {
-        auto title = ftxui::text("Y M C L I") | ftxui::bold | ftxui::color(Theme::Accent) | ftxui::center;
-        return ftxui::vbox({
+        auto title = ftxui::vbox({
             ftxui::text(""),
-            title,
-            ftxui::text(""),
+            ftxui::text("ymcli") | ftxui::bold | ftxui::color(Theme::Accent) | ftxui::center,
+            ftxui::text("v0.1.0") | ftxui::color(Theme::TextTertiary) | ftxui::center,
+            ftxui::text("")
+        });
+
+        auto footer = ftxui::vbox({
             ftxui::separator() | ftxui::color(Theme::Border),
-            menu_->Render() | ftxui::flex
+            ftxui::text("? help") | ftxui::color(Theme::TextTertiary) | ftxui::center,
+            ftxui::text("q quit") | ftxui::color(Theme::TextTertiary) | ftxui::center,
+            ftxui::text("")
+        });
+
+        return ftxui::vbox({
+            title,
+            ftxui::separator() | ftxui::color(Theme::Border),
+            menu_->Render() | ftxui::flex,
+            footer
         }) | ftxui::bgcolor(Theme::SecondaryBg);
     });
 

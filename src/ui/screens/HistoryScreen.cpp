@@ -41,7 +41,7 @@ HistoryScreen::HistoryScreen(PlayTracksCallback play_cb,
                 bool is_sel = (static_cast<int>(i) == selected_);
 
                 auto row = ftxui::hbox({
-                    ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                    ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                     ftxui::text(ymcli::truncate(song.title, 34)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 36),
                     ftxui::text(ymcli::truncate(song.artist, 22)) | ftxui::color(Theme::TextSecondary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 24),
                     ftxui::text(ymcli::truncate(song.album, 28)) | ftxui::color(Theme::TextTertiary) | ftxui::flex

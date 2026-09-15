@@ -27,7 +27,7 @@ AlbumScreen::AlbumScreen(PlayTracksCallback play_cb,
             bool is_sel = (static_cast<int>(i) == selected_);
 
             auto row = ftxui::hbox({
-                ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                 ftxui::text(std::to_string(i + 1) + ". ") | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 4),
                 ftxui::text(ymcli::truncate(t.title, 40)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::flex,
                 ftxui::text(t.duration_text.empty() ? "--:--" : t.duration_text) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)

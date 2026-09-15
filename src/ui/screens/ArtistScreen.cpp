@@ -28,7 +28,7 @@ ArtistScreen::ArtistScreen(PlayTracksCallback play_cb,
             bool is_sel = (in_songs_ && static_cast<int>(i) == selected_song_);
 
             auto row = ftxui::hbox({
-                ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                 ftxui::text(std::to_string(i + 1) + ". ") | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 4),
                 ftxui::text(ymcli::truncate(s.title, 36)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::flex,
                 ftxui::text(s.duration_text.empty() ? "--:--" : s.duration_text) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
@@ -46,7 +46,7 @@ ArtistScreen::ArtistScreen(PlayTracksCallback play_cb,
             bool is_sel = (!in_songs_ && static_cast<int>(i) == selected_album_);
 
             auto row = ftxui::hbox({
-                ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
+                ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? Theme::Accent : Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 3),
                 ftxui::text(ymcli::truncate(a.title, 32)) | ftxui::bold | ftxui::color(is_sel ? Theme::TextPrimary : Theme::TextSecondary) | ftxui::flex,
                 ftxui::text(a.year) | ftxui::color(Theme::TextTertiary) | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 8)
             });

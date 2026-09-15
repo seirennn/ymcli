@@ -43,7 +43,7 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
                 const auto& track = tracks_[i];
                 bool is_sel = (static_cast<int>(i) == selected_);
 
-                auto cursor_text = is_sel ? "▸ " : "  ";
+                auto cursor_text = is_sel ? "› " : "  ";
                 auto cursor_color = is_sel ? ftxui::color(Theme::Accent) : ftxui::color(Theme::TextTertiary);
 
                 std::string title_str = ymcli::truncate(track.title, 34);

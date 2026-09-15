@@ -362,7 +362,7 @@ void App::run() {
             bool is_sel_new = (modal_playlist_sel_ == 0);
             items.push_back(
                 ftxui::hbox({
-                    ftxui::text(is_sel_new ? "▸ " : "  ") | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextTertiary),
+                    ftxui::text(is_sel_new ? "› " : "  ") | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextTertiary),
                     ftxui::text("[ + Create New Playlist ]") | ftxui::bold | ftxui::color(is_sel_new ? ui::Theme::Accent : ui::Theme::TextPrimary)
                 }) | (is_sel_new ? ftxui::bgcolor(ui::Theme::Elevated) : ftxui::nothing)
             );
@@ -372,7 +372,7 @@ void App::run() {
                 const auto& pl = modal_local_playlists_[i];
                 items.push_back(
                     ftxui::hbox({
-                        ftxui::text(is_sel ? "▸ " : "  ") | ftxui::color(is_sel ? ui::Theme::Accent : ui::Theme::TextTertiary),
+                        ftxui::text(is_sel ? "› " : "  ") | ftxui::color(is_sel ? ui::Theme::Accent : ui::Theme::TextTertiary),
                         ftxui::text(pl.title) | ftxui::color(is_sel ? ui::Theme::TextPrimary : ui::Theme::TextSecondary) | ftxui::flex,
                         ftxui::text(std::to_string(pl.track_count) + " tracks") | ftxui::color(ui::Theme::TextTertiary)
                     }) | (is_sel ? ftxui::bgcolor(ui::Theme::Elevated) : ftxui::nothing)

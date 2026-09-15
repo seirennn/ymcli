@@ -16,7 +16,7 @@ private:
     int dummy_selected_ = 0;
     int* selected_ptr_ = nullptr;
     std::vector<std::string> items_ = {
-        "  Home", "  Search", "  Library", "  Queue", "  History", "  Favorites", "  Settings"
+        "1  Home", "2  Search", "3  Library", "4  Queue", "5  History", "6  Favorites", "7  Settings"
     };
     ftxui::Component menu_;
     ftxui::Component component_;
