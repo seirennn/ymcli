@@ -6,8 +6,14 @@
 
 namespace ymcli::ui {
 
-Sidebar::Sidebar() {
+Sidebar::Sidebar(int* active_screen)
+    : selected_ptr_(active_screen ? active_screen : &dummy_selected_)
+{
     ftxui::MenuOption option;
+    option.on_change = [this] {
+        // Synchronize active_screen when user selects item in menu
+    };
+
     option.entries_option.transform = [](const ftxui::EntryState& state) {
         if (state.active) {
             return ftxui::hbox({
@@ -21,30 +27,32 @@ Sidebar::Sidebar() {
         });
     };
 
-    menu_ = ftxui::Menu(&items_, &selected_, option);
+    menu_ = ftxui::Menu(&items_, selected_ptr_, option);
 
     component_ = ftxui::Renderer(menu_, [this] {
         auto title = ftxui::text("Y M C L I") | ftxui::bold | ftxui::color(Theme::Accent) | ftxui::center;
         return ftxui::vbox({
+            ftxui::text(""),
             title,
+            ftxui::text(""),
             ftxui::separator() | ftxui::color(Theme::Border),
             menu_->Render() | ftxui::flex
         }) | ftxui::bgcolor(Theme::SecondaryBg);
     });
 
     component_ |= ftxui::CatchEvent([this](ftxui::Event event) {
-        if (event == ftxui::Event::Character('j')) {
-            selected_ = std::min(static_cast<int>(items_.size()) - 1, selected_ + 1);
+        if (event == ftxui::Event::Character('j') || event == ftxui::Event::ArrowDown) {
+            *selected_ptr_ = std::min(static_cast<int>(items_.size()) - 1, *selected_ptr_ + 1);
             return true;
         }
-        if (event == ftxui::Event::Character('k')) {
-            selected_ = std::max(0, selected_ - 1);
+        if (event == ftxui::Event::Character('k') || event == ftxui::Event::ArrowUp) {
+            *selected_ptr_ = std::max(0, *selected_ptr_ - 1);
             return true;
         }
         if (event.is_character()) {
             char c = event.character()[0];
             if (c >= '1' && c <= '7') {
-                selected_ = c - '1';
+                *selected_ptr_ = c - '1';
                 return true;
             }
         }
@@ -53,6 +61,6 @@ Sidebar::Sidebar() {
 }
 
 ftxui::Component Sidebar::GetComponent() { return component_; }
-int& Sidebar::selected() { return selected_; }
+int& Sidebar::selected() { return *selected_ptr_; }
 
 } // namespace ymcli::ui

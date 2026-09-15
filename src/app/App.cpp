@@ -82,7 +82,7 @@ bool App::isAuthenticated() const {
 }
 
 void App::run() {
-    ui::Sidebar sidebar;
+    ui::Sidebar sidebar(&active_screen_);
     ui::SearchBar search_bar([this](std::string query) {
         search(query);
     });
@@ -120,7 +120,7 @@ void App::run() {
 
     settings_screen.setAuthStatus(isAuthenticated());
 
-    auto updateDataViews = [this, &home_screen, &history_screen, &favorites_screen, &queue_screen]() {
+    auto updateDataViews = [this, &home_screen, &history_screen, &favorites_screen, &queue_screen, &settings_screen]() {
         auto recent = db_->getPlayHistory(15);
         std::vector<ui::screens::RecentPlay> home_plays;
         for (const auto& t : recent) {
@@ -133,6 +133,7 @@ void App::run() {
         favorites_screen.SetFavorites(favs);
 
         queue_screen.UpdateQueue(queue_.tracks(), queue_.currentIndex());
+        settings_screen.setAuthStatus(isAuthenticated());
     };
 
     updateDataViews();
@@ -172,7 +173,7 @@ void App::run() {
     ui::Layout layout(sidebar, search_bar, content_tab, now_playing);
     auto root = layout.GetComponent();
 
-    root |= ftxui::CatchEvent([this, &search_screen, &syncState](ftxui::Event event) {
+    root |= ftxui::CatchEvent([this, &search_screen, &content_tab, &syncState](ftxui::Event event) {
         if (event == ftxui::Event::Character('q')) {
             screen_ref_->screen.ExitLoopClosure()();
             return true;
@@ -225,13 +226,13 @@ void App::run() {
             seekRelative(-10.0);
             return true;
         }
-        if (event == ftxui::Event::Character('1')) { active_screen_ = 0; return true; }
+        if (event == ftxui::Event::Character('1')) { active_screen_ = 0; content_tab->TakeFocus(); return true; }
         if (event == ftxui::Event::Character('2')) { active_screen_ = 1; search_screen.GetComponent()->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('3')) { active_screen_ = 2; return true; }
-        if (event == ftxui::Event::Character('4')) { active_screen_ = 3; return true; }
-        if (event == ftxui::Event::Character('5')) { active_screen_ = 4; return true; }
-        if (event == ftxui::Event::Character('6')) { active_screen_ = 5; return true; }
-        if (event == ftxui::Event::Character('7')) { active_screen_ = 6; return true; }
+        if (event == ftxui::Event::Character('3')) { active_screen_ = 2; content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('4')) { active_screen_ = 3; content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('5')) { active_screen_ = 4; content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('6')) { active_screen_ = 5; content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('7')) { active_screen_ = 6; content_tab->TakeFocus(); return true; }
 
         syncState();
         return false;
@@ -334,9 +335,8 @@ void App::search(const std::string& query) {
         auto results = api_->search(query);
         search_results_ = results;
         
-        // Post event to update UI search results on main loop
         screen_ref_->screen.Post([this, results]() {
-            // Updated search results
+            // Live update search screen
         });
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
