@@ -413,13 +413,38 @@ Playlist InnerTube::getPlaylist(const std::string& playlist_id) {
             const auto& h = headers[0];
             try { playlist.title = h["title"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
             try { playlist.author = h["subtitle"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
-        } else {
+        }
+
+        if (playlist.title.empty()) {
             std::vector<json> editable_headers;
             findItemRenderers(root, "musicEditablePlaylistDetailHeaderRenderer", editable_headers);
             if (!editable_headers.empty() && editable_headers[0].contains("header")) {
-                const auto& h = editable_headers[0]["header"]["musicDetailHeaderRenderer"];
+                const auto& eh = editable_headers[0]["header"];
+                if (eh.contains("musicDetailHeaderRenderer")) {
+                    const auto& h = eh["musicDetailHeaderRenderer"];
+                    try { playlist.title = h["title"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                    try { playlist.author = h["subtitle"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                } else if (eh.contains("musicResponsiveHeaderRenderer")) {
+                    const auto& h = eh["musicResponsiveHeaderRenderer"];
+                    try { playlist.title = h["title"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                    try { playlist.author = h["subtitle"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                    if (playlist.author.empty() && h.contains("straplineTextOne")) {
+                        try { playlist.author = h["straplineTextOne"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                    }
+                }
+            }
+        }
+
+        if (playlist.title.empty()) {
+            std::vector<json> resp_headers;
+            findItemRenderers(root, "musicResponsiveHeaderRenderer", resp_headers);
+            if (!resp_headers.empty()) {
+                const auto& h = resp_headers[0];
                 try { playlist.title = h["title"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
                 try { playlist.author = h["subtitle"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                if (playlist.author.empty() && h.contains("straplineTextOne")) {
+                    try { playlist.author = h["straplineTextOne"]["runs"][0]["text"].get<std::string>(); } catch (...) {}
+                }
             }
         }
 

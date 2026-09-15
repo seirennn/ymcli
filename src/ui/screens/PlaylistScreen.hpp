@@ -25,6 +25,8 @@ public:
     ftxui::Component GetComponent();
     
     void SetPlaylist(const Playlist& playlist);
+    void SetLoading(bool is_loading);
+    void SetHeader(const std::string& title, const std::string& author);
 
 private:
     std::string title_;
@@ -32,6 +34,7 @@ private:
     int track_count_ = 0;
     std::vector<Track> tracks_;
     int selected_ = 0;
+    bool is_loading_ = false;
 
     PlayTracksCallback play_cb_;
     EnqueueCallback enqueue_cb_;

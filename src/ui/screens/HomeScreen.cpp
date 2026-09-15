@@ -57,6 +57,8 @@ HomeScreen::HomeScreen() {
                 ftxui::text("QUICK COMMANDS") | ftxui::bold | ftxui::color(Theme::TextPrimary),
                 ftxui::separator() | ftxui::color(Theme::Border),
                 entry("/", "Search music"),
+                entry("Shift+←/→", "Switch sidebar / content pane"),
+                entry("Shift+F", "Fullscreen player & visualizer"),
                 entry("space", "Play or pause"),
                 entry("n / p", "Next / previous track"),
                 entry("< / >", "Seek 10s backward / forward"),

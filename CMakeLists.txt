@@ -93,6 +93,7 @@ add_executable(ymcli
     src/ui/Layout.cpp
     src/ui/Sidebar.cpp
     src/ui/NowPlaying.cpp
+    src/ui/FullscreenPlayer.cpp
     src/ui/SearchBar.cpp
     src/ui/screens/HomeScreen.cpp
     src/ui/screens/SearchScreen.cpp

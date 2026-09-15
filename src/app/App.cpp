@@ -8,6 +8,7 @@
 #include "ui/Sidebar.hpp"
 #include "ui/SearchBar.hpp"
 #include "ui/NowPlaying.hpp"
+#include "ui/FullscreenPlayer.hpp"
 #include "ui/Layout.hpp"
 
 #include "ui/screens/HomeScreen.hpp"
@@ -25,6 +26,8 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <thread>
+#include <atomic>
+#include <chrono>
 #include <iostream>
 
 namespace ymcli {
@@ -164,10 +167,12 @@ static ftxui::Element renderShortcutsModal() {
         ftxui::separator() | ftxui::color(ui::Theme::Border),
         entry("1 - 7", "Switch view tabs"),
         entry("/", "Search YouTube Music"),
+        entry("Shift+←/→", "Focus sidebar ↔ content"),
+        entry("Tab", "Toggle sidebar / content"),
+        entry("Shift+F / F", "Fullscreen visualizer"),
         entry("j / k", "Navigate lists (Down / Up)"),
-        entry("Tab", "Switch focus between panes"),
         entry("Esc", "Back / Unfocus"),
-        entry("?", "Toggle this shortcuts guide"),
+        entry("?", "Toggle shortcuts guide"),
         entry("q", "Quit ymcli")
     });
 
@@ -209,7 +214,13 @@ void App::openAddToPlaylistModal(const Track& track) {
 }
 
 void App::run() {
-    ui::Sidebar sidebar(&active_screen_);
+    ui::Sidebar sidebar([this](int idx) {
+        active_screen_ = idx;
+        if (sidebar_ptr_) sidebar_ptr_->SetSelectedIndex(idx);
+        screen_ref_->screen.PostEvent(ftxui::Event::Custom);
+    });
+    sidebar_ptr_ = &sidebar;
+
     ui::SearchBar search_bar([this](std::string query) {
         search(query);
     });
@@ -229,7 +240,7 @@ void App::run() {
                 int id = std::stoi(pl.playlist_id.substr(6));
                 navigateToLocalPlaylist(id, pl.title);
             } else {
-                navigateToPlaylist(pl.playlist_id);
+                navigateToPlaylist(pl.playlist_id, pl.title);
             }
         },
         [this](const std::string& name) {
@@ -334,6 +345,8 @@ void App::run() {
     }, &active_screen_);
 
     ui::NowPlaying now_playing(reinterpret_cast<const ui::PlaybackState&>(playback_state_));
+    ui::FullscreenPlayer fullscreen_player(reinterpret_cast<const ui::PlaybackState&>(playback_state_));
+    auto fs_comp = fullscreen_player.GetComponent();
 
     ui::Layout layout(sidebar, search_bar, content_tab, now_playing);
     auto base_layout = layout.GetComponent();
@@ -344,10 +357,15 @@ void App::run() {
 
     auto root_container = ftxui::Container::Vertical({
         base_layout,
-        modal_input
+        modal_input,
+        fs_comp
     });
 
-    auto root = ftxui::Renderer(root_container, [this, base_layout, modal_input]() mutable -> ftxui::Element {
+    auto root = ftxui::Renderer(root_container, [this, base_layout, modal_input, fs_comp]() mutable -> ftxui::Element {
+        if (show_fullscreen_player_) {
+            return fs_comp->Render();
+        }
+
         auto main_element = base_layout->Render();
 
         if (show_shortcuts_modal_) {
@@ -412,7 +430,59 @@ void App::run() {
         return main_element;
     });
 
-    root |= ftxui::CatchEvent([this, &search_bar, &content_tab, &search_screen, modal_input](ftxui::Event event) {
+    root |= ftxui::CatchEvent([this, &sidebar, &search_bar, &content_tab, &search_screen, modal_input](ftxui::Event event) {
+        if (show_fullscreen_player_) {
+            if (event == ftxui::Event::Character('F') || 
+                event == ftxui::Event::Special("\x1B[1;2F") ||
+                event.input() == "\x1B[1;2F" ||
+                event == ftxui::Event::Escape || 
+                event == ftxui::Event::Character('q')) {
+                show_fullscreen_player_ = false;
+                return true;
+            }
+            if (event == ftxui::Event::Character(' ')) {
+                togglePause();
+                return true;
+            }
+            if (event == ftxui::Event::Character('n')) {
+                nextTrack();
+                return true;
+            }
+            if (event == ftxui::Event::Character('p')) {
+                prevTrack();
+                return true;
+            }
+            if (event == ftxui::Event::Character('+') || event == ftxui::Event::Character('=')) {
+                setVolume(playback_state_.volume + 5.0);
+                return true;
+            }
+            if (event == ftxui::Event::Character('-')) {
+                setVolume(playback_state_.volume - 5.0);
+                return true;
+            }
+            if (event == ftxui::Event::Character('m')) {
+                toggleMute();
+                return true;
+            }
+            if (event == ftxui::Event::Character('s')) {
+                toggleShuffle();
+                return true;
+            }
+            if (event == ftxui::Event::Character('r')) {
+                cycleRepeat();
+                return true;
+            }
+            if (event == ftxui::Event::Character('>') || event == ftxui::Event::ArrowRight) {
+                seekRelative(10.0);
+                return true;
+            }
+            if (event == ftxui::Event::Character('<') || event == ftxui::Event::ArrowLeft) {
+                seekRelative(-10.0);
+                return true;
+            }
+            return true;
+        }
+
         if (show_shortcuts_modal_) {
             if (event == ftxui::Event::Character('?') || 
                 event == ftxui::Event::Escape || 
@@ -491,6 +561,42 @@ void App::run() {
             return false;
         }
 
+        // Fullscreen player toggle
+        if (event == ftxui::Event::Character('F') || 
+            event == ftxui::Event::Special("\x1B[1;2F") ||
+            event.input() == "\x1B[1;2F") {
+            show_fullscreen_player_ = true;
+            return true;
+        }
+
+        // Pane navigation: Shift + Left / Right Arrow, Tab / Shift+Tab, H / L
+        bool is_shift_left = (event == ftxui::Event::Special("\x1B[1;2D") ||
+                              event == ftxui::Event::Special("\x1B[2D") ||
+                              event.input() == "\x1B[1;2D" ||
+                              event.input() == "\x1B[2D");
+
+        bool is_shift_right = (event == ftxui::Event::Special("\x1B[1;2C") ||
+                               event == ftxui::Event::Special("\x1B[2C") ||
+                               event.input() == "\x1B[1;2C" ||
+                               event.input() == "\x1B[2C");
+
+        if (is_shift_left || event == ftxui::Event::Character('H')) {
+            sidebar.GetComponent()->TakeFocus();
+            return true;
+        }
+        if (is_shift_right || event == ftxui::Event::Character('L')) {
+            content_tab->TakeFocus();
+            return true;
+        }
+        if (event == ftxui::Event::Tab || event == ftxui::Event::TabReverse) {
+            if (sidebar.GetComponent()->Focused()) {
+                content_tab->TakeFocus();
+            } else {
+                sidebar.GetComponent()->TakeFocus();
+            }
+            return true;
+        }
+
         if (event == ftxui::Event::Character('?')) {
             show_shortcuts_modal_ = true;
             return true;
@@ -543,18 +649,34 @@ void App::run() {
             seekRelative(-10.0);
             return true;
         }
-        if (event == ftxui::Event::Character('1')) { active_screen_ = 0; content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('2')) { active_screen_ = 1; search_screen.GetComponent()->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('3')) { active_screen_ = 2; content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('4')) { active_screen_ = 3; content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('5')) { active_screen_ = 4; content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('6')) { active_screen_ = 5; content_tab->TakeFocus(); return true; }
-        if (event == ftxui::Event::Character('7')) { active_screen_ = 6; content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('1')) { active_screen_ = 0; sidebar.SetSelectedIndex(0); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('2')) { active_screen_ = 1; sidebar.SetSelectedIndex(1); search_screen.GetComponent()->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('3')) { active_screen_ = 2; sidebar.SetSelectedIndex(2); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('4')) { active_screen_ = 3; sidebar.SetSelectedIndex(3); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('5')) { active_screen_ = 4; sidebar.SetSelectedIndex(4); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('6')) { active_screen_ = 5; sidebar.SetSelectedIndex(5); content_tab->TakeFocus(); return true; }
+        if (event == ftxui::Event::Character('7')) { active_screen_ = 6; sidebar.SetSelectedIndex(6); content_tab->TakeFocus(); return true; }
 
         return false;
     });
 
+    std::atomic<bool> app_running = true;
+    std::thread vis_ticker([this, &fullscreen_player, &app_running]() {
+        while (app_running) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(60));
+            if (show_fullscreen_player_ && playback_state_.has_track && !playback_state_.is_paused) {
+                fullscreen_player.Tick();
+                screen_ref_->screen.PostEvent(ftxui::Event::Custom);
+            }
+        }
+    });
+
     screen_ref_->screen.Loop(root);
+
+    app_running = false;
+    if (vis_ticker.joinable()) {
+        vis_ticker.join();
+    }
 }
 
 void App::playTrack(const Track& track) {
@@ -688,6 +810,9 @@ void App::search(const std::string& query) {
 
 void App::navigateTo(Screen screen) {
     active_screen_ = static_cast<int>(screen);
+    if (sidebar_ptr_ && active_screen_ >= 0 && active_screen_ <= 6) {
+        sidebar_ptr_->SetSelectedIndex(active_screen_);
+    }
     screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
@@ -701,8 +826,8 @@ void App::navigateToAlbum(const std::string& browseId) {
             if (album_screen_ptr_) {
                 album_screen_ptr_->SetAlbum(album);
             }
+            screen_ref_->screen.PostEvent(ftxui::Event::Custom);
         });
-        screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
 }
 
@@ -716,23 +841,33 @@ void App::navigateToArtist(const std::string& channelId) {
             if (artist_screen_ptr_) {
                 artist_screen_ptr_->SetArtist(artist);
             }
+            screen_ref_->screen.PostEvent(ftxui::Event::Custom);
         });
-        screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
 }
 
-void App::navigateToPlaylist(const std::string& playlistId) {
+void App::navigateToPlaylist(const std::string& playlistId, const std::string& default_title) {
     active_screen_ = static_cast<int>(Screen::PlaylistDetail);
+    if (playlist_screen_ptr_) {
+        if (!default_title.empty()) {
+            playlist_screen_ptr_->SetHeader(default_title, "YouTube Music");
+        }
+        playlist_screen_ptr_->SetLoading(true);
+    }
     screen_ref_->screen.PostEvent(ftxui::Event::Custom);
-    std::thread([this, playlistId]() {
+
+    std::thread([this, playlistId, default_title]() {
         auto playlist = api_->getPlaylist(playlistId);
+        if (playlist.title.empty() && !default_title.empty()) {
+            playlist.title = default_title;
+        }
         screen_ref_->screen.Post([this, playlist]() {
             current_playlist_ = playlist;
             if (playlist_screen_ptr_) {
                 playlist_screen_ptr_->SetPlaylist(playlist);
             }
+            screen_ref_->screen.PostEvent(ftxui::Event::Custom);
         });
-        screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
 }
 

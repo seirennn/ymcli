@@ -33,7 +33,15 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
         rows.push_back(header_row);
         rows.push_back(ftxui::separator() | ftxui::color(Theme::Border));
 
-        if (tracks_.empty()) {
+        if (is_loading_) {
+            rows.push_back(
+                ftxui::vbox({
+                    ftxui::text(""),
+                    ftxui::text("Loading playlist tracks from YouTube Music...") | ftxui::color(Theme::Accent) | ftxui::center,
+                    ftxui::text("")
+                })
+            );
+        } else if (tracks_.empty()) {
             rows.push_back(
                 ftxui::text("No tracks found in this playlist.")
                 | ftxui::color(Theme::TextTertiary) | ftxui::center
@@ -149,11 +157,25 @@ PlaylistScreen::PlaylistScreen(PlayTracksCallback play_cb,
 ftxui::Component PlaylistScreen::GetComponent() { return component_; }
 
 void PlaylistScreen::SetPlaylist(const Playlist& playlist) {
-    title_ = playlist.title;
-    author_ = playlist.author;
-    track_count_ = playlist.track_count;
+    title_ = playlist.title.empty() ? title_ : playlist.title;
+    author_ = playlist.author.empty() ? author_ : playlist.author;
+    track_count_ = playlist.track_count > 0 ? playlist.track_count : static_cast<int>(playlist.tracks.size());
     tracks_ = playlist.tracks;
+    is_loading_ = false;
     selected_ = 0;
+}
+
+void PlaylistScreen::SetLoading(bool is_loading) {
+    is_loading_ = is_loading;
+    if (is_loading) {
+        tracks_.clear();
+        selected_ = 0;
+    }
+}
+
+void PlaylistScreen::SetHeader(const std::string& title, const std::string& author) {
+    title_ = title;
+    author_ = author;
 }
 
 } // namespace ymcli::ui::screens

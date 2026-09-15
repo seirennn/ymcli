@@ -37,14 +37,16 @@ Playback:
   r           Cycle repeat mode
 
 Navigation:
-  /           Focus search bar
-  j / k       Move up / down
-  Enter       Play song & queue upcoming tracks
-  Tab         Switch pane or discography section
-  1 to 7      Switch tabs (Home, Search, Library, Queue, History, Favorites, Settings)
-  ?           Shortcuts cheatsheet
-  Esc         Unfocus / Go back
-  q           Quit
+  /               Focus search bar
+  j / k           Move up / down
+  Enter           Play song & queue upcoming tracks
+  Shift + ← / →   Switch pane (sidebar ↔ main content)
+  Tab             Toggle pane focus or section
+  Shift + F / F   Fullscreen player & atmospheric audio visualizer
+  1 to 7          Switch tabs (Home, Search, Library, Queue, History, Favorites, Settings)
+  ?               Shortcuts cheatsheet
+  Esc             Unfocus / Go back
+  q               Quit
 
 Track Actions:
   a           Add highlighted track to current queue

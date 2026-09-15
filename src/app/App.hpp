@@ -11,6 +11,10 @@ class AudioEngine;
 class InnerTube;
 class Database;
 
+namespace ui {
+class Sidebar;
+}
+
 namespace ui::screens {
 class HomeScreen;
 class SearchScreen;
@@ -85,7 +89,7 @@ public:
     void navigateTo(Screen screen);
     void navigateToAlbum(const std::string& browseId);
     void navigateToArtist(const std::string& channelId);
-    void navigateToPlaylist(const std::string& playlistId);
+    void navigateToPlaylist(const std::string& playlistId, const std::string& default_title = "");
     void navigateToLocalPlaylist(int playlist_id, const std::string& title);
     void openAddToPlaylistModal(const Track& track);
     void syncCloudData();
@@ -129,9 +133,11 @@ private:
     ui::screens::HistoryScreen* history_screen_ptr_ = nullptr;
     ui::screens::FavoritesScreen* favorites_screen_ptr_ = nullptr;
     ui::screens::SettingsScreen* settings_screen_ptr_ = nullptr;
+    ui::Sidebar* sidebar_ptr_ = nullptr;
 
     bool show_shortcuts_modal_ = false;
     bool show_add_playlist_modal_ = false;
+    bool show_fullscreen_player_ = false;
     bool modal_creating_new_ = false;
     Track modal_track_;
     int modal_playlist_sel_ = 0;
