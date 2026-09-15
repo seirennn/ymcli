@@ -32,6 +32,24 @@ InnerTube::InnerTube() {
 
 InnerTube::~InnerTube() = default;
 
+static void writeNetscapeCookies(const std::string& cookie_string, const std::string& file_path) {
+    std::ofstream out(file_path);
+    if (!out.is_open()) return;
+    out << "# Netscape HTTP Cookie File\n";
+    std::istringstream stream(cookie_string);
+    std::string token;
+    while (std::getline(stream, token, ';')) {
+        size_t start = token.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) continue;
+        token = token.substr(start);
+        size_t eq = token.find('=');
+        if (eq == std::string::npos) continue;
+        std::string name = token.substr(0, eq);
+        std::string value = token.substr(eq + 1);
+        out << ".youtube.com\tTRUE\t/\tTRUE\t2147483647\t" << name << "\t" << value << "\n";
+    }
+}
+
 bool InnerTube::setAuthCookies(const std::string& cookie_string) {
     if (cookie_string.empty()) {
         is_authenticated_ = false;
@@ -75,16 +93,18 @@ bool InnerTube::setAuthCookies(const std::string& cookie_string) {
         is_authenticated_ = false;
     }
 
-    // Save auth string locally for persistence
+    // Save auth string locally for persistence and create cookies.txt for mpv/yt-dlp
     if (is_authenticated_) {
         try {
             std::string auth_path = getConfigDir() + "/auth.json";
+            std::string cookies_path = getConfigDir() + "/cookies.txt";
             ensureDirectory(getConfigDir());
             std::ofstream file(auth_path);
             if (file.is_open()) {
                 json j = {{"cookie", cookie_string_}};
                 file << j.dump(4, ' ', false, nlohmann::json::error_handler_t::replace);
             }
+            writeNetscapeCookies(cookie_string_, cookies_path);
         } catch (...) {
             // Guard against any unexpected serialization or filesystem errors
         }

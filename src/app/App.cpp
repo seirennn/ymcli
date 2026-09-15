@@ -40,13 +40,17 @@ App::App()
 
     audio_->onPositionChanged([this](double pos, double dur) {
         playback_state_.position = pos;
-        playback_state_.duration = dur;
+        if (dur > 0.0) {
+            playback_state_.duration = dur;
+        }
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     });
 
     audio_->onTitleChanged([this](const std::string& title) {
-        playback_state_.title = title;
-        screen_ref_->screen.PostEvent(ftxui::Event::Custom);
+        if (!title.empty()) {
+            playback_state_.title = title;
+            screen_ref_->screen.PostEvent(ftxui::Event::Custom);
+        }
     });
 
     audio_->onStateChanged([this](bool is_paused) {
@@ -81,6 +85,19 @@ bool App::isAuthenticated() const {
     return api_->isAuthenticated();
 }
 
+void App::updateDataViews() {
+    auto recent = db_->getPlayHistory(15);
+    std::vector<ui::screens::RecentPlay> home_plays;
+    for (const auto& t : recent) {
+        home_plays.push_back({t.title, t.artist});
+    }
+    if (home_screen_ptr_) home_screen_ptr_->SetRecentPlays(home_plays);
+    if (history_screen_ptr_) history_screen_ptr_->SetHistory(recent);
+    if (favorites_screen_ptr_) favorites_screen_ptr_->SetFavorites(db_->getFavorites());
+    if (queue_screen_ptr_) queue_screen_ptr_->UpdateQueue(queue_.tracks(), queue_.currentIndex());
+    if (settings_screen_ptr_) settings_screen_ptr_->setAuthStatus(isAuthenticated());
+}
+
 void App::run() {
     ui::Sidebar sidebar(&active_screen_);
     ui::SearchBar search_bar([this](std::string query) {
@@ -101,7 +118,7 @@ void App::run() {
 
     ui::screens::QueueScreen queue_screen(
         [this](size_t idx) { queue_.jumpTo(idx); playCurrentQueueTrack(); },
-        [this](size_t idx) { queue_.removeTrack(idx); }
+        [this](size_t idx) { queue_.removeTrack(idx); updateDataViews(); }
     );
 
     ui::screens::HistoryScreen history_screen(
@@ -114,27 +131,27 @@ void App::run() {
     );
 
     ui::screens::SettingsScreen settings_screen(
-        [this](const std::string& cookie) { return authenticate(cookie); },
-        [this](std::string& browser) { return autoDetectAuth(&browser); }
+        [this](const std::string& cookie) { 
+            bool ok = authenticate(cookie);
+            updateDataViews();
+            return ok;
+        },
+        [this](std::string& browser) { 
+            bool ok = autoDetectAuth(&browser);
+            updateDataViews();
+            return ok;
+        }
     );
 
-    settings_screen.setAuthStatus(isAuthenticated());
-
-    auto updateDataViews = [this, &home_screen, &history_screen, &favorites_screen, &queue_screen, &settings_screen]() {
-        auto recent = db_->getPlayHistory(15);
-        std::vector<ui::screens::RecentPlay> home_plays;
-        for (const auto& t : recent) {
-            home_plays.push_back({t.title, t.artist});
-        }
-        home_screen.SetRecentPlays(home_plays);
-        history_screen.SetHistory(recent);
-
-        auto favs = db_->getFavorites();
-        favorites_screen.SetFavorites(favs);
-
-        queue_screen.UpdateQueue(queue_.tracks(), queue_.currentIndex());
-        settings_screen.setAuthStatus(isAuthenticated());
-    };
+    home_screen_ptr_ = &home_screen;
+    search_screen_ptr_ = &search_screen;
+    album_screen_ptr_ = &album_screen;
+    artist_screen_ptr_ = &artist_screen;
+    playlist_screen_ptr_ = &playlist_screen;
+    queue_screen_ptr_ = &queue_screen;
+    history_screen_ptr_ = &history_screen;
+    favorites_screen_ptr_ = &favorites_screen;
+    settings_screen_ptr_ = &settings_screen;
 
     updateDataViews();
 
@@ -151,71 +168,59 @@ void App::run() {
         playlist_screen.GetComponent(),
     }, &active_screen_);
 
-    ui::PlaybackState ui_state;
-    auto syncState = [this, &ui_state, &updateDataViews]() {
-        ui_state.title = playback_state_.title;
-        ui_state.artist = playback_state_.artist;
-        ui_state.album = playback_state_.album;
-        ui_state.position = playback_state_.position;
-        ui_state.duration = playback_state_.duration;
-        ui_state.volume = playback_state_.volume;
-        ui_state.is_paused = playback_state_.is_paused;
-        ui_state.is_muted = playback_state_.is_muted;
-        ui_state.is_shuffled = playback_state_.is_shuffled;
-        ui_state.has_track = playback_state_.has_track;
-
-        updateDataViews();
-    };
-    syncState();
-
-    ui::NowPlaying now_playing(ui_state);
+    ui::NowPlaying now_playing(reinterpret_cast<const ui::PlaybackState&>(playback_state_));
 
     ui::Layout layout(sidebar, search_bar, content_tab, now_playing);
     auto root = layout.GetComponent();
 
-    root |= ftxui::CatchEvent([this, &search_screen, &content_tab, &syncState](ftxui::Event event) {
+    root |= ftxui::CatchEvent([this, &search_bar, &content_tab, &search_screen](ftxui::Event event) {
+        // If search input is focused, let it receive all normal keys without triggering media shortcuts
+        if (search_bar.GetComponent()->Focused()) {
+            if (event == ftxui::Event::Escape) {
+                content_tab->TakeFocus();
+                return true;
+            }
+            return false;
+        }
+
         if (event == ftxui::Event::Character('q')) {
             screen_ref_->screen.ExitLoopClosure()();
             return true;
         }
+        if (event == ftxui::Event::Character('/')) {
+            search_bar.GetComponent()->TakeFocus();
+            return true;
+        }
         if (event == ftxui::Event::Character(' ')) {
             togglePause();
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('n')) {
             nextTrack();
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('p')) {
             prevTrack();
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('+') || event == ftxui::Event::Character('=')) {
             setVolume(playback_state_.volume + 5.0);
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('-')) {
             setVolume(playback_state_.volume - 5.0);
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('m')) {
             toggleMute();
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('s')) {
             toggleShuffle();
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('r')) {
             cycleRepeat();
-            syncState();
             return true;
         }
         if (event == ftxui::Event::Character('>')) {
@@ -234,7 +239,6 @@ void App::run() {
         if (event == ftxui::Event::Character('6')) { active_screen_ = 5; content_tab->TakeFocus(); return true; }
         if (event == ftxui::Event::Character('7')) { active_screen_ = 6; content_tab->TakeFocus(); return true; }
 
-        syncState();
         return false;
     });
 
@@ -245,11 +249,16 @@ void App::playTrack(const Track& track) {
     playback_state_.title = track.title;
     playback_state_.artist = track.artist;
     playback_state_.album = track.album;
+    playback_state_.duration = track.duration_seconds > 0 ? track.duration_seconds : 0.0;
+    playback_state_.position = 0.0;
     playback_state_.has_track = true;
     playback_state_.is_paused = false;
 
     db_->addPlayHistory(track);
+    updateDataViews();
+
     audio_->play(track.video_id);
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::playTracks(const std::vector<Track>& tracks, size_t start) {
@@ -259,15 +268,20 @@ void App::playTracks(const std::vector<Track>& tracks, size_t start) {
 
 void App::addToQueue(const Track& track) {
     queue_.addTrack(track);
+    updateDataViews();
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::addToQueue(const std::vector<Track>& tracks) {
     queue_.addTracks(tracks);
+    updateDataViews();
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::togglePause() {
     audio_->togglePause();
     playback_state_.is_paused = !playback_state_.is_paused;
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::nextTrack() {
@@ -278,6 +292,7 @@ void App::nextTrack() {
         audio_->stop();
         playback_state_.has_track = false;
         playback_state_.is_paused = true;
+        screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }
 }
 
@@ -297,20 +312,24 @@ void App::setVolume(double vol) {
     if (vol > 100.0) vol = 100.0;
     playback_state_.volume = vol;
     audio_->setVolume(vol);
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::toggleMute() {
     audio_->toggleMute();
     playback_state_.is_muted = audio_->isMuted();
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::toggleShuffle() {
     queue_.toggleShuffle();
     playback_state_.is_shuffled = queue_.isShuffled();
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::cycleRepeat() {
     queue_.cycleRepeat();
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::toggleFavorite(const Track& track) {
@@ -319,6 +338,8 @@ void App::toggleFavorite(const Track& track) {
     } else {
         db_->addFavorite(track);
     }
+    updateDataViews();
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 bool App::isFavorite(const std::string& videoId) {
@@ -330,13 +351,19 @@ void App::search(const std::string& query) {
     db_->addSearchHistory(query);
 
     active_screen_ = static_cast<int>(Screen::Search);
+    if (search_screen_ptr_) {
+        search_screen_ptr_->SetLoading(true);
+        search_screen_ptr_->GetComponent()->TakeFocus();
+    }
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 
     std::thread([this, query]() {
         auto results = api_->search(query);
-        search_results_ = results;
-        
         screen_ref_->screen.Post([this, results]() {
-            // Live update search screen
+            search_results_ = results;
+            if (search_screen_ptr_) {
+                search_screen_ptr_->SetResults(results);
+            }
         });
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
@@ -344,28 +371,50 @@ void App::search(const std::string& query) {
 
 void App::navigateTo(Screen screen) {
     active_screen_ = static_cast<int>(screen);
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
 }
 
 void App::navigateToAlbum(const std::string& browseId) {
     active_screen_ = static_cast<int>(Screen::AlbumDetail);
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     std::thread([this, browseId]() {
-        current_album_ = api_->getAlbum(browseId);
+        auto album = api_->getAlbum(browseId);
+        screen_ref_->screen.Post([this, album]() {
+            current_album_ = album;
+            if (album_screen_ptr_) {
+                album_screen_ptr_->SetAlbum(album);
+            }
+        });
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
 }
 
 void App::navigateToArtist(const std::string& channelId) {
     active_screen_ = static_cast<int>(Screen::ArtistDetail);
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     std::thread([this, channelId]() {
-        current_artist_ = api_->getArtist(channelId);
+        auto artist = api_->getArtist(channelId);
+        screen_ref_->screen.Post([this, artist]() {
+            current_artist_ = artist;
+            if (artist_screen_ptr_) {
+                artist_screen_ptr_->SetArtist(artist);
+            }
+        });
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
 }
 
 void App::navigateToPlaylist(const std::string& playlistId) {
     active_screen_ = static_cast<int>(Screen::PlaylistDetail);
+    screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     std::thread([this, playlistId]() {
-        current_playlist_ = api_->getPlaylist(playlistId);
+        auto playlist = api_->getPlaylist(playlistId);
+        screen_ref_->screen.Post([this, playlist]() {
+            current_playlist_ = playlist;
+            if (playlist_screen_ptr_) {
+                playlist_screen_ptr_->SetPlaylist(playlist);
+            }
+        });
         screen_ref_->screen.PostEvent(ftxui::Event::Custom);
     }).detach();
 }

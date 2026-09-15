@@ -1,10 +1,12 @@
 #include "AudioEngine.hpp"
+#include "../util/Platform.hpp"
 #include <mpv/client.h>
 #include <thread>
 #include <atomic>
 #include <mutex>
 #include <stdexcept>
 #include <iostream>
+#include <filesystem>
 
 namespace ymcli {
 
@@ -34,6 +36,13 @@ struct AudioEngine::Impl {
         mpv_set_option_string(mpv, "ytdl-format", "bestaudio/best");
         mpv_set_option_string(mpv, "network-timeout", "15");
         mpv_set_option_string(mpv, "demuxer-max-bytes", "20971520");
+
+        std::string cookie_path = getConfigDir() + "/cookies.txt";
+        std::error_code ec;
+        if (std::filesystem::exists(cookie_path, ec)) {
+            std::string raw_opt = "cookies=" + cookie_path;
+            mpv_set_option_string(mpv, "ytdl-raw-options", raw_opt.c_str());
+        }
 
         if (mpv_initialize(mpv) < 0) {
             throw std::runtime_error("Failed to initialize mpv");
@@ -108,7 +117,13 @@ AudioEngine::AudioEngine() : impl_(std::make_unique<Impl>()) {}
 AudioEngine::~AudioEngine() = default;
 
 void AudioEngine::play(const std::string& videoId) {
-    playUrl("https://music.youtube.com/watch?v=" + videoId);
+    std::string cookie_path = getConfigDir() + "/cookies.txt";
+    std::error_code ec;
+    if (std::filesystem::exists(cookie_path, ec)) {
+        std::string raw_opt = "cookies=" + cookie_path;
+        mpv_set_option_string(impl_->mpv, "ytdl-raw-options", raw_opt.c_str());
+    }
+    playUrl("https://www.youtube.com/watch?v=" + videoId);
 }
 
 void AudioEngine::playUrl(const std::string& url) {

@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include "../../api/Models.hpp"
+
 namespace ymcli::ui::screens {
 
 struct ArtistSong { std::string title; };
@@ -14,6 +16,17 @@ public:
     ftxui::Component GetComponent();
     
     void SetData(const std::string& name, const std::string& subs, const std::vector<ArtistSong>& songs, const std::vector<ArtistAlbum>& albums);
+    void SetArtist(const Artist& artist) {
+        std::vector<ArtistSong> songs;
+        for (const auto& s : artist.top_songs) {
+            songs.push_back({s.title});
+        }
+        std::vector<ArtistAlbum> albums;
+        for (const auto& a : artist.albums) {
+            albums.push_back({a.title, a.year});
+        }
+        SetData(artist.name, artist.subscriber_count, songs, albums);
+    }
 
 private:
     std::string name_, subs_;

@@ -11,6 +11,18 @@ class AudioEngine;
 class InnerTube;
 class Database;
 
+namespace ui::screens {
+class HomeScreen;
+class SearchScreen;
+class AlbumScreen;
+class ArtistScreen;
+class PlaylistScreen;
+class QueueScreen;
+class HistoryScreen;
+class FavoritesScreen;
+class SettingsScreen;
+}
+
 struct PlaybackState {
     std::string title;
     std::string artist;
@@ -100,6 +112,18 @@ private:
     Playlist current_playlist_;
 
     int active_screen_ = 0;
+
+    void updateDataViews();
+
+    ui::screens::HomeScreen* home_screen_ptr_ = nullptr;
+    ui::screens::SearchScreen* search_screen_ptr_ = nullptr;
+    ui::screens::AlbumScreen* album_screen_ptr_ = nullptr;
+    ui::screens::ArtistScreen* artist_screen_ptr_ = nullptr;
+    ui::screens::PlaylistScreen* playlist_screen_ptr_ = nullptr;
+    ui::screens::QueueScreen* queue_screen_ptr_ = nullptr;
+    ui::screens::HistoryScreen* history_screen_ptr_ = nullptr;
+    ui::screens::FavoritesScreen* favorites_screen_ptr_ = nullptr;
+    ui::screens::SettingsScreen* settings_screen_ptr_ = nullptr;
 
     struct ScreenRef;
     std::unique_ptr<ScreenRef> screen_ref_;
