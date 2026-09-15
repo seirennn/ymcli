@@ -1,3 +1,0 @@
-/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/CMakeFiles/httplib-populate.dir
-/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/CMakeFiles/edit_cache.dir
-/Users/lansohumtsoe/.gemini/antigravity/scratch/ymcli/build/_deps/httplib-subbuild/CMakeFiles/rebuild_cache.dir
